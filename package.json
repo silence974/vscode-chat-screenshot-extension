@@ -48,11 +48,6 @@
     "configuration": {
       "title": "Codex Chat Screenshot",
       "properties": {
-        "codexChatScreenshot.autoCopyOnChange": {
-          "type": "boolean",
-          "default": true,
-          "description": "Automatically try to copy the latest generated PNG to the clipboard after the collected content changes."
-        },
         "codexChatScreenshot.clipboardPollIntervalMs": {
           "type": "number",
           "default": 800,

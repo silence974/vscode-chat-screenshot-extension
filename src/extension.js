@@ -111,7 +111,7 @@ class CollectorPanel {
         return;
       case 'copyFailed':
         vscode.window.showWarningMessage(
-          `自动复制 PNG 失败：${message.reason || '浏览器剪贴板接口不可用'}`
+          `复制 PNG 失败：${message.reason || '浏览器剪贴板接口不可用'}`
         );
         return;
       case 'notify':
@@ -196,7 +196,6 @@ class CollectorPanel {
           text: clipboardText,
           capturedAt: new Date().toISOString(),
           filenameBase: buildFilenameBase(),
-          autoCopy: vscode.workspace.getConfiguration('codexChatScreenshot').get('autoCopyOnChange', true),
           source: force ? 'manual' : 'auto'
         }
       });
@@ -259,13 +258,13 @@ class CollectorPanel {
           <p class="eyebrow">Codex Chat Screenshot</p>
           <h1>Clipboard Collector</h1>
           <p class="hero-copy">
-            先打开这个面板，再去 Codex 里连续复制需要的回复。每次复制后，收集器都会自动追加、实时预览，并尝试把最新 PNG 放进系统剪贴板。
+            先打开这个面板，再去 Codex 里连续复制需要的回复。每次复制后，收集器都会自动追加并实时预览；等你满意后，再手动点击复制 PNG。
           </p>
         </div>
         <div class="hero-pills">
           <span class="pill">Auto Collect</span>
           <span class="pill">Remove & Retry</span>
-          <span class="pill">Auto Copy PNG</span>
+          <span class="pill">Manual Copy PNG</span>
         </div>
       </header>
 
@@ -313,7 +312,7 @@ class CollectorPanel {
               <p class="eyebrow">Preview</p>
               <h2>最终截图预览</h2>
             </div>
-            <p class="preview-note">每次收集、删除或清空后，都会自动刷新并尝试重新复制 PNG。</p>
+            <p class="preview-note">每次收集、删除或清空后，都会自动刷新最终预览；复制 PNG 改为手动触发。</p>
           </div>
 
           <div class="preview-frame">

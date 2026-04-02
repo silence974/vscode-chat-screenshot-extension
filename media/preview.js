@@ -34,8 +34,6 @@
     watcherActive: false,
     pollIntervalMs: 800,
     filenameBase: 'codex-chat',
-    autoCopyEnabled: true,
-    autoCopyTimer: undefined,
     isCopying: false
   };
 
@@ -70,12 +68,12 @@
 
   elements.clearButton.addEventListener('click', () => {
     state.entries = [];
-    renderAll({ triggerAutoCopy: false });
+    renderAll();
     setStatus('已清空收集内容。', 'idle');
   });
 
   elements.copyButton.addEventListener('click', () => {
-    void copyPng(true);
+    void copyPng();
   });
 
   elements.downloadButton.addEventListener('click', () => {
@@ -90,8 +88,8 @@
 
     const entryId = button.getAttribute('data-entry-remove');
     state.entries = state.entries.filter((entry) => entry.id !== entryId);
-    renderAll({ triggerAutoCopy: state.entries.length > 0 });
-    setStatus(state.entries.length ? '已移除一段内容，并刷新 PNG。' : '已移除最后一段内容。', 'success');
+    renderAll();
+    setStatus(state.entries.length ? '已移除一段内容，并刷新预览。' : '已移除最后一段内容。', 'success');
   });
 
   window.addEventListener('message', (event) => {
@@ -109,7 +107,7 @@
     }
   });
 
-  renderAll({ triggerAutoCopy: false });
+  renderAll();
   vscode.postMessage({ type: 'ready' });
 
   function applyWatcherState(payload) {
@@ -137,7 +135,6 @@
     }
 
     state.filenameBase = payload?.filenameBase || state.filenameBase;
-    state.autoCopyEnabled = payload?.autoCopy !== false;
     state.entries.push({
       id: payload?.id || buildLocalId(),
       text,
@@ -146,24 +143,18 @@
       capturedAt: payload?.capturedAt || new Date().toISOString()
     });
 
-    renderAll({ triggerAutoCopy: state.autoCopyEnabled });
+    renderAll();
     setStatus(`已收集第 ${state.entries.length} 段内容，并刷新预览。`, 'success');
   }
 
-  function renderAll(options) {
+  function renderAll() {
     elements.entryCountLabel.textContent = `${state.entries.length} 段`;
     elements.captureTimestamp.textContent = formatTimestamp(new Date());
     renderEntryList();
     renderCapturePreview();
 
     if (!state.entries.length) {
-      clearTimeout(state.autoCopyTimer);
       setStatus('等待新的聊天复制内容', 'idle');
-      return;
-    }
-
-    if (options?.triggerAutoCopy) {
-      scheduleAutoCopy();
     }
   }
 
@@ -224,18 +215,7 @@
       .join('');
   }
 
-  function scheduleAutoCopy() {
-    if (!state.autoCopyEnabled || !state.entries.length) {
-      return;
-    }
-
-    clearTimeout(state.autoCopyTimer);
-    state.autoCopyTimer = window.setTimeout(() => {
-      void copyPng(false);
-    }, 140);
-  }
-
-  async function copyPng(fromUserAction) {
+  async function copyPng() {
     if (!state.entries.length) {
       setStatus('还没有可复制的截图内容。', 'error');
       return;
@@ -261,15 +241,11 @@
       ]);
 
       setStatus('最新 PNG 已复制到系统剪贴板。', 'success');
-      if (fromUserAction) {
-        vscode.postMessage({ type: 'copied' });
-      }
+      vscode.postMessage({ type: 'copied' });
     } catch (error) {
       const reason = error instanceof Error ? error.message : '未知错误';
-      setStatus('自动复制失败，请点击“复制 PNG”重试或直接下载文件。', 'error');
-      if (fromUserAction) {
-        vscode.postMessage({ type: 'copyFailed', reason });
-      }
+      setStatus('复制 PNG 失败，请重试或直接下载文件。', 'error');
+      vscode.postMessage({ type: 'copyFailed', reason });
     } finally {
       state.isCopying = false;
     }
