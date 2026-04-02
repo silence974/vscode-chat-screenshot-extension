@@ -2,7 +2,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Run Codex Chat Screenshot Extension",
+      "name": "Run chat-screeenshot Extension",
       "type": "extensionHost",
       "request": "launch",
       "args": [

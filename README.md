@@ -1,11 +1,11 @@
-# Codex Chat Screenshot
+# chat-screeenshot
 
 把 VS Code 中复制出来的 Codex 聊天回复持续收集成一张 PNG，并支持手动复制到系统剪贴板。
 
 ## 当前工作流
 
 1. 打开收集器面板：
-   - 命令：`Codex Chat Screenshot: Open Chat Screenshot Collector`
+   - 命令：`chat-screeenshot: Open Collector`
    - 默认快捷键：`Ctrl+Alt+Shift+S`
 2. 保持收集器面板开启。
 3. 在 Codex 聊天窗口里选中需要的回复并复制。
@@ -18,7 +18,7 @@
 
 补充说明：
 - 真正的独立悬浮窗不是 VS Code 标准扩展能力；当前实现使用常驻 `WebviewPanel`，是最接近的形式。
-- 旧命令 `Capture Copied Codex Chat as PNG` 仍然保留，作用是打开收集器并立即抓取一次当前剪贴板。
+- 旧兼容命令 `Capture Copied Chat as PNG` 仍然保留，作用是打开收集器并立即抓取一次当前剪贴板。
 
 ## 功能说明
 
@@ -67,10 +67,10 @@ npm test
 ### 方式一：直接调试运行
 
 1. 用桌面版 VS Code 打开这个仓库目录。
-2. 按 `F5`，或者进入“运行和调试”并选择 `Run Codex Chat Screenshot Extension`。
+2. 按 `F5`，或者进入“运行和调试”并选择 `Run chat-screeenshot Extension`。
 3. 会弹出一个新的 Extension Development Host 窗口。
 4. 在新窗口里打开 Codex 聊天。
-5. 运行 `Open Chat Screenshot Collector`。
+5. 运行 `Open Collector`。
 6. 在 Codex 里连续复制你想保留的回复。
 7. 查看左侧收集列表是否自动出现新内容，右侧预览是否实时更新。
 8. 测试删除某一段后，预览是否自动刷新，再手动点 `复制 PNG`。

@@ -52,7 +52,7 @@ class CollectorPanel {
     if (!this.panel) {
       this.panel = vscode.window.createWebviewPanel(
         PANEL_VIEW_TYPE,
-        'Codex Chat Screenshot Collector',
+        'chat-screeenshot',
         {
           viewColumn: vscode.ViewColumn.Beside,
           preserveFocus: true
@@ -249,14 +249,14 @@ class CollectorPanel {
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="stylesheet" href="${cssUri}" />
-    <title>Codex Chat Screenshot Collector</title>
+    <title>chat-screeenshot</title>
   </head>
   <body>
     <div class="shell">
       <section class="workspace-card">
         <div class="toolbar">
           <div class="toolbar-copy">
-            <h1 class="toolbar-title">Chat Screenshot</h1>
+            <h1 class="toolbar-title">chat-screeenshot</h1>
             <span id="watcherLabel" class="source-label">准备中</span>
           </div>
           <div class="toolbar-actions">

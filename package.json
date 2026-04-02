@@ -1,7 +1,7 @@
 {
-  "name": "codex-chat-screenshot",
-  "displayName": "Codex Chat Screenshot",
-  "description": "Turn copied Codex chat replies into polished PNG screenshots and copy them to the clipboard.",
+  "name": "chat-screeenshot",
+  "displayName": "chat-screeenshot",
+  "description": "Turn copied chat replies into polished PNG screenshots and copy them to the clipboard.",
   "version": "0.0.1",
   "license": "MIT",
   "engines": {
@@ -29,13 +29,13 @@
     "commands": [
       {
         "command": "codexChatScreenshot.openCollector",
-        "title": "Open Chat Screenshot Collector",
-        "category": "Codex Chat Screenshot"
+        "title": "Open Collector",
+        "category": "chat-screeenshot"
       },
       {
         "command": "codexChatScreenshot.captureFromClipboard",
-        "title": "Capture Copied Codex Chat as PNG",
-        "category": "Codex Chat Screenshot"
+        "title": "Capture Copied Chat as PNG",
+        "category": "chat-screeenshot"
       }
     ],
     "keybindings": [
@@ -46,7 +46,7 @@
       }
     ],
     "configuration": {
-      "title": "Codex Chat Screenshot",
+      "title": "chat-screeenshot",
       "properties": {
         "codexChatScreenshot.clipboardPollIntervalMs": {
           "type": "number",

@@ -2,7 +2,7 @@
 
 ## Project
 
-名称：VSCode Chat Screenshot Extension
+名称：chat-screeenshot
 
 目标：开发一个 VS Code 插件，用于把 VSCode 中 Codex 聊天窗口里的单段回复或多段回复转换为截图，并支持手动复制 PNG 到系统剪贴板。
 
@@ -44,6 +44,7 @@
 - 已同步补强 canvas 导出链路中的基础行内格式表现，使最终 PNG 不再只在面板预览里突出特殊格式。
 - 已根据新的反馈把特殊格式继续收敛到更接近 Codex 的程序员审美：减少高亮底色，改用字重、细边框和链接色表达层次。
 - 已扩展链接解析范围，markdown 链接不再只识别 `http(s)` 目标，本地路径等目标也会优先显示标签而不是原始目标串。
+- 已按要求将插件对外名称统一改为 `chat-screeenshot`。
 
 当前问题：
 - webview 内手动 PNG 剪贴板写入的浏览器支持仍需在实际 VS Code 环境中验证。
@@ -242,3 +243,4 @@ MVP 不做：
 - 根据新的格式反馈，继续降低特殊格式的装饰性，改为更接近 Codex 的克制风格。
 - 将链接解析逻辑从仅支持 `http(s)` markdown 链接扩展到任意目标，并对裸链接使用短标签展示。
 - 再次运行 `npm test`，结果通过。
+- 统一更新扩展 manifest、面板标题、README 和调试配置中的对外名称为 `chat-screeenshot`。
