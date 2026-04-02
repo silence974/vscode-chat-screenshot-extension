@@ -1,0 +1,357 @@
+:root {
+  color-scheme: light dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: var(--vscode-font-family);
+  color: var(--vscode-foreground);
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--vscode-button-background) 24%, transparent), transparent 32%),
+    linear-gradient(180deg, color-mix(in srgb, var(--vscode-editor-background) 94%, white), var(--vscode-editor-background));
+}
+
+button,
+textarea {
+  font: inherit;
+}
+
+.shell {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 28px;
+  display: grid;
+  gap: 20px;
+}
+
+.hero,
+.workspace-card,
+.preview-section {
+  border: 1px solid color-mix(in srgb, var(--vscode-panel-border, var(--vscode-contrastBorder)) 72%, transparent);
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--vscode-editor-background) 90%, white);
+  box-shadow: 0 20px 60px color-mix(in srgb, var(--vscode-editor-background) 76%, black);
+}
+
+.hero {
+  padding: 28px;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.hero h1,
+.preview-heading h2,
+.capture-header h3 {
+  margin: 0;
+}
+
+.hero-copy,
+.preview-note,
+.empty-state p,
+.source-label {
+  color: color-mix(in srgb, var(--vscode-foreground) 78%, transparent);
+}
+
+.eyebrow,
+.capture-kicker {
+  margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 11px;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--vscode-button-background) 80%, var(--vscode-foreground));
+}
+
+.hero-pills,
+.toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--vscode-button-background) 38%, transparent);
+  background: color-mix(in srgb, var(--vscode-button-background) 12%, transparent);
+  color: color-mix(in srgb, var(--vscode-foreground) 92%, transparent);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.workspace-card,
+.preview-section {
+  padding: 22px;
+}
+
+.toolbar,
+.preview-heading,
+.capture-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.toolbar-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.button {
+  border: 1px solid transparent;
+  border-radius: 12px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
+}
+
+.button:hover {
+  transform: translateY(-1px);
+}
+
+.button-primary {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}
+
+.button-primary:hover {
+  background: var(--vscode-button-hoverBackground);
+}
+
+.button-secondary {
+  background: color-mix(in srgb, var(--vscode-editor-background) 72%, white);
+  color: var(--vscode-foreground);
+  border-color: color-mix(in srgb, var(--vscode-panel-border, var(--vscode-contrastBorder)) 72%, transparent);
+}
+
+.input-shell {
+  margin-top: 18px;
+  display: block;
+}
+
+#sourceInput {
+  width: 100%;
+  min-height: 220px;
+  resize: vertical;
+  border: 1px solid color-mix(in srgb, var(--vscode-panel-border, var(--vscode-contrastBorder)) 72%, transparent);
+  border-radius: 16px;
+  padding: 18px;
+  color: var(--vscode-editor-foreground);
+  background: color-mix(in srgb, var(--vscode-input-background, var(--vscode-editor-background)) 88%, transparent);
+  line-height: 1.65;
+}
+
+#sourceInput:focus {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: 2px;
+}
+
+.status-banner {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid transparent;
+  font-weight: 600;
+}
+
+.status-idle {
+  background: color-mix(in srgb, var(--vscode-editor-background) 82%, white);
+  color: var(--vscode-foreground);
+}
+
+.status-working {
+  background: color-mix(in srgb, var(--vscode-button-background) 12%, transparent);
+  border-color: color-mix(in srgb, var(--vscode-button-background) 32%, transparent);
+}
+
+.status-success {
+  background: color-mix(in srgb, var(--vscode-testing-iconPassed) 14%, transparent);
+  border-color: color-mix(in srgb, var(--vscode-testing-iconPassed) 28%, transparent);
+}
+
+.status-error {
+  background: color-mix(in srgb, var(--vscode-testing-iconFailed) 14%, transparent);
+  border-color: color-mix(in srgb, var(--vscode-testing-iconFailed) 28%, transparent);
+}
+
+.preview-frame {
+  margin-top: 18px;
+  padding: 24px;
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--vscode-sideBar-background, var(--vscode-editor-background)) 92%, white), color-mix(in srgb, var(--vscode-editor-background) 94%, black));
+  overflow: auto;
+}
+
+.capture-surface {
+  width: min(880px, 100%);
+  margin: 0 auto;
+  padding: 28px;
+  border-radius: 24px;
+  color: #f5f7fb;
+  background:
+    radial-gradient(circle at top left, rgba(120, 173, 255, 0.18), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(255, 177, 115, 0.18), transparent 26%),
+    linear-gradient(180deg, #111723, #1a2231 62%, #0f1620);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.38);
+}
+
+.capture-header {
+  margin-bottom: 20px;
+  align-items: center;
+}
+
+.capture-timestamp {
+  color: rgba(245, 247, 251, 0.72);
+  font-size: 12px;
+}
+
+.capture-content {
+  display: grid;
+  gap: 14px;
+}
+
+.response-card {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  padding: 18px;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px);
+}
+
+.response-card > :first-child {
+  margin-top: 0;
+}
+
+.response-card > :last-child {
+  margin-bottom: 0;
+}
+
+.response-card p,
+.response-card li,
+.response-card blockquote {
+  font-size: 15px;
+  line-height: 1.75;
+}
+
+.response-card h1,
+.response-card h2,
+.response-card h3,
+.response-card h4,
+.response-card h5,
+.response-card h6 {
+  margin: 1.1em 0 0.55em;
+  line-height: 1.2;
+}
+
+.response-card ul,
+.response-card ol {
+  padding-left: 1.3em;
+}
+
+.response-card blockquote {
+  margin: 0;
+  padding: 0.9em 1em;
+  border-left: 3px solid rgba(120, 173, 255, 0.88);
+  background: rgba(120, 173, 255, 0.1);
+  border-radius: 0 12px 12px 0;
+  color: rgba(245, 247, 251, 0.92);
+}
+
+.response-card hr {
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+  margin: 20px 0;
+}
+
+.response-card pre {
+  margin: 0;
+  overflow: auto;
+  padding: 16px;
+  border-radius: 16px;
+  background: rgba(4, 8, 16, 0.76);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.code-wrapper {
+  margin: 18px 0;
+}
+
+.code-label {
+  display: inline-flex;
+  margin-bottom: 8px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(245, 247, 251, 0.75);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.response-card code {
+  font-family: var(--vscode-editor-font-family, ui-monospace, SFMono-Regular, monospace);
+}
+
+.response-card p code,
+.response-card li code,
+.response-card blockquote code {
+  padding: 0.2em 0.45em;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffd59a;
+}
+
+.response-card a {
+  color: #8fc4ff;
+  text-decoration: none;
+}
+
+.response-card a:hover {
+  text-decoration: underline;
+}
+
+.empty-state {
+  padding: 26px;
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+  border-radius: 18px;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+@media (max-width: 900px) {
+  .hero,
+  .toolbar,
+  .preview-heading,
+  .capture-header {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+
+  .shell {
+    padding: 18px;
+  }
+
+  .workspace-card,
+  .preview-section,
+  .hero {
+    padding: 18px;
+  }
+
+  .preview-frame {
+    padding: 14px;
+  }
+
+  .capture-surface {
+    padding: 20px;
+  }
+}

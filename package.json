@@ -1,0 +1,51 @@
+{
+  "name": "codex-chat-screenshot",
+  "displayName": "Codex Chat Screenshot",
+  "description": "Turn copied Codex chat replies into polished PNG screenshots and copy them to the clipboard.",
+  "version": "0.0.1",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.113.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "codex",
+    "chat",
+    "screenshot",
+    "clipboard",
+    "png"
+  ],
+  "activationEvents": [
+    "onCommand:codexChatScreenshot.captureFromClipboard"
+  ],
+  "main": "./src/extension.js",
+  "extensionKind": [
+    "ui",
+    "workspace"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "codexChatScreenshot.captureFromClipboard",
+        "title": "Capture Copied Codex Chat as PNG",
+        "category": "Codex Chat Screenshot"
+      }
+    ],
+    "configuration": {
+      "title": "Codex Chat Screenshot",
+      "properties": {
+        "codexChatScreenshot.autoCopyOnOpen": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically try to copy the generated PNG to the clipboard after the preview opens."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "lint": "node --check src/extension.js && node --check media/preview.js",
+    "test": "npm run lint"
+  }
+}
