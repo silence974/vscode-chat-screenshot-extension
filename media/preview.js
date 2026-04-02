@@ -150,16 +150,20 @@
     }
 
     elements.entryList.innerHTML = state.entries
-      .map((entry, index) => {
+      .map((entry) => {
         return `
           <article class="entry-card">
-            <div class="entry-row">
-              <h3 class="entry-title">摘要 ${index + 1}</h3>
-              <div class="entry-actions">
-                <button class="button button-danger" type="button" data-entry-remove="${entry.id}">去掉</button>
-              </div>
-            </div>
             <p class="entry-snippet">${escapeHtml(buildSnippet(entry.text))}</p>
+            <div class="entry-actions">
+              <button
+                class="button button-danger entry-remove-button"
+                type="button"
+                data-entry-remove="${entry.id}"
+                aria-label="移除这段内容"
+              >
+                去掉
+              </button>
+            </div>
           </article>
         `;
       })
@@ -372,7 +376,7 @@
 
   function measureParagraphBlock(ctx, block, width) {
     const style = { family: FONT_SANS, size: 15, weight: '400', lineHeight: 1.75 };
-    const lines = wrapText(ctx, normalizeInlineText(block.content), width, style);
+    const lines = wrapInlineText(ctx, block.content, width, style);
     return {
       type: 'paragraph',
       style,
@@ -390,7 +394,7 @@
       weight: '700',
       lineHeight: 1.25
     };
-    const lines = wrapText(ctx, normalizeInlineText(block.content), width, style);
+    const lines = wrapInlineText(ctx, block.content, width, style);
     return {
       type: 'heading',
       style,
@@ -404,7 +408,7 @@
     const style = { family: FONT_SANS, size: 15, weight: '400', lineHeight: 1.75 };
     const paddingX = 14;
     const paddingY = 12;
-    const lines = wrapText(ctx, normalizeInlineText(block.content), width - paddingX * 2 - 6, style);
+    const lines = wrapInlineText(ctx, block.content, width - paddingX * 2 - 6, style);
     return {
       type: 'blockquote',
       style,
@@ -420,7 +424,7 @@
     const style = { family: FONT_SANS, size: 15, weight: '400', lineHeight: 1.75 };
     const itemPlans = block.items.map((item, index) => {
       const prefix = block.type === 'ordered-list' ? `${index + 1}. ` : '• ';
-      const lines = wrapText(ctx, `${prefix}${normalizeInlineText(item)}`, width, style);
+      const lines = wrapInlineText(ctx, `${prefix}${item}`, width, style);
       return {
         prefix,
         lines,
@@ -518,10 +522,10 @@
   function drawCanvasBlock(ctx, plan, x, y) {
     switch (plan.type) {
       case 'heading':
-        drawTextLines(ctx, plan.lines, x, y, plan.style, canvasTheme.textPrimary);
+        drawRichTextLines(ctx, plan.lines, x, y, plan.style);
         return;
       case 'paragraph':
-        drawTextLines(ctx, plan.lines, x, y, plan.style, canvasTheme.textPrimary);
+        drawRichTextLines(ctx, plan.lines, x, y, plan.style);
         return;
       case 'blockquote':
         drawRoundedRect(ctx, x, y, plan.width, plan.height, 12);
@@ -529,20 +533,13 @@
         ctx.fill();
         ctx.fillStyle = canvasTheme.quoteBorder;
         ctx.fillRect(x, y, 3, plan.height);
-        drawTextLines(
-          ctx,
-          plan.lines,
-          x + plan.paddingX,
-          y + plan.paddingY,
-          plan.style,
-          canvasTheme.textPrimary
-        );
+        drawRichTextLines(ctx, plan.lines, x + plan.paddingX, y + plan.paddingY, plan.style);
         return;
       case 'unordered-list':
       case 'ordered-list': {
         let currentY = y;
         plan.itemPlans.forEach((itemPlan, index) => {
-          drawTextLines(ctx, itemPlan.lines, x, currentY, plan.style, canvasTheme.textPrimary);
+          drawRichTextLines(ctx, itemPlan.lines, x, currentY, plan.style);
           currentY += itemPlan.height;
           if (index < plan.itemPlans.length - 1) {
             currentY += plan.gap;
@@ -597,6 +594,69 @@
 
     lines.forEach((line, index) => {
       ctx.fillText(line || ' ', x, y + height * (index + 1));
+    });
+  }
+
+  function drawRichTextLines(ctx, lines, x, y, baseStyle) {
+    const height = lineHeight(baseStyle);
+
+    lines.forEach((line, index) => {
+      const baselineY = y + height * (index + 1);
+      if (!line?.segments?.length) {
+        return;
+      }
+
+      let cursorX = x;
+
+      line.segments.forEach((segment) => {
+        const segmentStyle = getInlineCanvasStyle(baseStyle, segment.kind);
+        const metrics = measureInlineSegment(ctx, segment, baseStyle);
+
+        if (segment.kind === 'code') {
+          const boxHeight = Math.max(20, Math.round(baseStyle.size * 1.12));
+          const boxTop = baselineY - boxHeight + 4;
+          drawRoundedRect(ctx, cursorX, boxTop, metrics.width, boxHeight, 7);
+          ctx.fillStyle = canvasTheme.inlineCodeBackground;
+          ctx.fill();
+          ctx.strokeStyle = canvasTheme.inlineCodeBorder;
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        } else if (segment.kind === 'strong' && segment.text.trim()) {
+          const highlightTop = baselineY - Math.round(height * 0.34);
+          const highlightHeight = Math.max(5, Math.round(height * 0.22));
+          drawRoundedRect(ctx, cursorX, highlightTop, metrics.width, highlightHeight, 4);
+          ctx.fillStyle = canvasTheme.strongBackground;
+          ctx.fill();
+        }
+
+        if (segment.text.trim()) {
+          setCanvasFont(ctx, segmentStyle);
+          ctx.fillStyle = getInlineCanvasColor(segment.kind);
+          ctx.fillText(segment.text, cursorX + metrics.offsetX, baselineY);
+
+          if (segment.kind === 'link') {
+            const underlineY = baselineY + 3;
+            ctx.strokeStyle = canvasTheme.linkColor;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(cursorX + metrics.offsetX, underlineY);
+            ctx.lineTo(cursorX + metrics.offsetX + metrics.textWidth, underlineY);
+            ctx.stroke();
+          }
+
+          if (segment.kind === 'del') {
+            const strikeY = baselineY - Math.round(height * 0.38);
+            ctx.strokeStyle = canvasTheme.textMuted;
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(cursorX + metrics.offsetX, strikeY);
+            ctx.lineTo(cursorX + metrics.offsetX + metrics.textWidth, strikeY);
+            ctx.stroke();
+          }
+        }
+
+        cursorX += metrics.width;
+      });
     });
   }
 
@@ -774,6 +834,238 @@
       .replace(/~~([^~]+)~~/g, '$1');
   }
 
+  function wrapInlineText(ctx, text, maxWidth, style) {
+    const paragraphs = String(text).split('\n');
+    const lines = [];
+
+    paragraphs.forEach((paragraph, index) => {
+      const segmentLines = wrapInlineSegments(ctx, parseInlineSegments(paragraph), maxWidth, style);
+      lines.push(...segmentLines);
+      if (index < paragraphs.length - 1) {
+        lines.push({ segments: [] });
+      }
+    });
+
+    return lines.length ? lines : [{ segments: [] }];
+  }
+
+  function wrapInlineSegments(ctx, segments, maxWidth, baseStyle) {
+    const tokens = tokenizeInlineSegments(segments);
+    const lines = [];
+    let current = [];
+    let currentWidth = 0;
+
+    if (!tokens.length) {
+      return [{ segments: [] }];
+    }
+
+    tokens.forEach((token) => {
+      const queue = [token];
+
+      while (queue.length) {
+        const nextToken = normalizeLeadingInlineToken(queue.shift(), current.length === 0);
+        if (!nextToken || !nextToken.text) {
+          continue;
+        }
+
+        const metrics = measureInlineSegment(ctx, nextToken, baseStyle);
+        if (!current.length) {
+          if (metrics.width <= maxWidth) {
+            current.push(nextToken);
+            currentWidth = metrics.width;
+            continue;
+          }
+
+          const fragments = splitInlineToken(ctx, nextToken, maxWidth, baseStyle);
+          current.push(fragments[0]);
+          lines.push(buildInlineLine(current));
+          current = [];
+          currentWidth = 0;
+          queue.unshift(...fragments.slice(1));
+          continue;
+        }
+
+        if (currentWidth + metrics.width <= maxWidth) {
+          current.push(nextToken);
+          currentWidth += metrics.width;
+          continue;
+        }
+
+        lines.push(buildInlineLine(current));
+        current = [];
+        currentWidth = 0;
+        queue.unshift(nextToken);
+      }
+    });
+
+    if (current.length || !lines.length) {
+      lines.push(buildInlineLine(current));
+    }
+
+    return lines;
+  }
+
+  function buildInlineLine(tokens) {
+    const segments = tokens.slice();
+
+    while (segments.length && !segments[segments.length - 1].text.trim()) {
+      segments.pop();
+    }
+
+    return { segments };
+  }
+
+  function tokenizeInlineSegments(segments) {
+    const tokens = [];
+
+    segments.forEach((segment) => {
+      if (!segment.text) {
+        return;
+      }
+
+      if (segment.kind === 'code') {
+        tokens.push({ text: segment.text, kind: segment.kind, atomic: true });
+        return;
+      }
+
+      const parts = segment.text.match(/\S+\s*|\s+/g) || [];
+      parts.forEach((part) => {
+        tokens.push({ text: part, kind: segment.kind, atomic: false });
+      });
+    });
+
+    return tokens;
+  }
+
+  function normalizeLeadingInlineToken(token, isLineStart) {
+    if (!token) {
+      return null;
+    }
+
+    if (!isLineStart) {
+      return token;
+    }
+
+    const trimmed = token.text.trimStart();
+    if (!trimmed) {
+      return null;
+    }
+
+    return {
+      ...token,
+      text: trimmed
+    };
+  }
+
+  function splitInlineToken(ctx, token, maxWidth, baseStyle) {
+    const fragments = [];
+    let current = '';
+
+    Array.from(token.text).forEach((char) => {
+      const candidate = current + char;
+      const metrics = measureInlineSegment(ctx, { ...token, text: candidate }, baseStyle);
+      if (!current || metrics.width <= maxWidth) {
+        current = candidate;
+      } else {
+        fragments.push({ ...token, text: current });
+        current = char;
+      }
+    });
+
+    if (current) {
+      fragments.push({ ...token, text: current });
+    }
+
+    return fragments.length ? fragments : [{ ...token, text: token.text }];
+  }
+
+  function measureInlineSegment(ctx, segment, baseStyle) {
+    const style = getInlineCanvasStyle(baseStyle, segment.kind);
+    setCanvasFont(ctx, style);
+    const textWidth = ctx.measureText(segment.text).width;
+
+    if (segment.kind === 'code') {
+      return {
+        width: textWidth + 12,
+        textWidth,
+        offsetX: 6
+      };
+    }
+
+    return {
+      width: textWidth,
+      textWidth,
+      offsetX: 0
+    };
+  }
+
+  function getInlineCanvasStyle(baseStyle, kind) {
+    switch (kind) {
+      case 'strong':
+        return { ...baseStyle, weight: '700' };
+      case 'em':
+        return { ...baseStyle, fontStyle: 'italic' };
+      case 'code':
+        return {
+          family: FONT_MONO,
+          size: Math.max(12, baseStyle.size - 1),
+          weight: '600',
+          lineHeight: baseStyle.lineHeight
+        };
+      default:
+        return baseStyle;
+    }
+  }
+
+  function getInlineCanvasColor(kind) {
+    switch (kind) {
+      case 'code':
+        return canvasTheme.inlineCodeText;
+      case 'link':
+        return canvasTheme.linkColor;
+      case 'em':
+        return canvasTheme.emphasisText;
+      case 'del':
+        return canvasTheme.textMuted;
+      default:
+        return canvasTheme.textPrimary;
+    }
+  }
+
+  function parseInlineSegments(text) {
+    const source = String(text || '');
+    const segments = [];
+    const pattern = /`([^`]+)`|\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|\*\*([^*]+)\*\*|\*([^*]+)\*|~~([^~]+)~~/g;
+    let lastIndex = 0;
+    let match;
+
+    while ((match = pattern.exec(source))) {
+      if (match.index > lastIndex) {
+        segments.push({ kind: 'text', text: source.slice(lastIndex, match.index) });
+      }
+
+      if (match[1] !== undefined) {
+        segments.push({ kind: 'code', text: match[1] });
+      } else if (match[2] !== undefined) {
+        segments.push({ kind: 'link', text: match[2] });
+      } else if (match[4] !== undefined) {
+        segments.push({ kind: 'strong', text: match[4] });
+      } else if (match[5] !== undefined) {
+        segments.push({ kind: 'em', text: match[5] });
+      } else if (match[6] !== undefined) {
+        segments.push({ kind: 'del', text: match[6] });
+      }
+
+      lastIndex = pattern.lastIndex;
+    }
+
+    if (lastIndex < source.length) {
+      segments.push({ kind: 'text', text: source.slice(lastIndex) });
+    }
+
+    return segments;
+  }
+
   function wrapText(ctx, text, maxWidth, style) {
     const paragraphs = String(text).split('\n');
     const lines = [];
@@ -888,7 +1180,8 @@
   }
 
   function setCanvasFont(ctx, style) {
-    ctx.font = `${style.weight} ${style.size}px ${style.family}`;
+    const fontStyle = style.fontStyle ? `${style.fontStyle} ` : '';
+    ctx.font = `${fontStyle}${style.weight} ${style.size}px ${style.family}`;
   }
 
   function lineHeight(style) {
@@ -973,7 +1266,13 @@
       codeBorder: divider,
       codeText: textPrimary,
       badgeBackground: withAlpha(textPrimary, 0.06, 'rgba(127, 127, 127, 0.08)'),
-      hr: divider
+      hr: divider,
+      inlineCodeBackground: withAlpha(accent, 0.08, 'rgba(55, 148, 255, 0.08)'),
+      inlineCodeBorder: withAlpha(accent, 0.18, 'rgba(55, 148, 255, 0.18)'),
+      inlineCodeText: mixColors(textPrimary, accent, 0.12, textPrimary),
+      linkColor: accent,
+      emphasisText: mixColors(textPrimary, accent, 0.3, textPrimary),
+      strongBackground: withAlpha(accent, 0.14, 'rgba(55, 148, 255, 0.14)')
     };
   }
 

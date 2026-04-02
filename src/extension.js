@@ -276,7 +276,7 @@ class CollectorPanel {
       <section class="collector-layout">
         <section class="collector-panel">
           <div class="section-heading">
-            <h2>条目摘要</h2>
+            <h2>摘要</h2>
             <span id="entryCountLabel" class="section-meta">0 段</span>
           </div>
 
