@@ -3,31 +3,17 @@
 
   const FONT_SANS = "'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif";
   const FONT_MONO = "'Cascadia Mono', Consolas, 'Liberation Mono', monospace";
-  const CANVAS_THEME = {
+  const CANVAS_LAYOUT = {
     width: 880,
-    outerPadding: 28,
-    headerGap: 20,
-    cardGap: 14,
-    cardPadding: 18,
-    cardRadius: 18,
-    surfaceRadius: 24,
-    surfaceBackgroundTop: '#111723',
-    surfaceBackgroundBottom: '#0f1620',
-    textPrimary: '#f5f7fb',
-    textMuted: 'rgba(245, 247, 251, 0.72)',
-    accent: '#8fc4ff',
-    codeText: '#edf2ff',
-    codeAccent: '#ffd59a',
-    surfaceGlowBlue: 'rgba(120, 173, 255, 0.18)',
-    surfaceGlowAmber: 'rgba(255, 177, 115, 0.18)',
-    cardBackground: 'rgba(255, 255, 255, 0.05)',
-    cardBorder: 'rgba(255, 255, 255, 0.08)',
-    quoteBackground: 'rgba(120, 173, 255, 0.10)',
-    quoteBorder: 'rgba(120, 173, 255, 0.88)',
-    codeBackground: 'rgba(4, 8, 16, 0.76)',
-    codeBorder: 'rgba(255, 255, 255, 0.08)',
-    inlineCodeBackground: 'rgba(255, 255, 255, 0.10)'
+    outerPadding: 20,
+    headerGap: 14,
+    cardGap: 10,
+    cardPadding: 14,
+    cardRadius: 12,
+    surfaceRadius: 14
   };
+
+  let canvasTheme;
 
   const state = {
     entries: [],
@@ -44,7 +30,6 @@
     entryList: document.getElementById('entryList'),
     captureSurface: document.getElementById('captureSurface'),
     captureContent: document.getElementById('captureContent'),
-    captureTimestamp: document.getElementById('captureTimestamp'),
     captureClipboardButton: document.getElementById('captureClipboardButton'),
     toggleWatcherButton: document.getElementById('toggleWatcherButton'),
     clearButton: document.getElementById('clearButton'),
@@ -114,9 +99,7 @@
     state.watcherActive = Boolean(payload?.active);
     state.pollIntervalMs = payload?.pollIntervalMs || 800;
 
-    elements.watcherLabel.textContent = state.watcherActive
-      ? `自动监听中，每 ${state.pollIntervalMs}ms 轮询一次系统剪贴板`
-      : '自动监听已暂停';
+    elements.watcherLabel.textContent = state.watcherActive ? '自动监听中' : '监听已暂停';
     elements.toggleWatcherButton.textContent = state.watcherActive ? '暂停监听' : '恢复监听';
   }
 
@@ -138,9 +121,7 @@
     state.entries.push({
       id: payload?.id || buildLocalId(),
       text,
-      blocks: splitBlocks(text),
-      source: payload?.source || 'auto',
-      capturedAt: payload?.capturedAt || new Date().toISOString()
+      blocks: splitBlocks(text)
     });
 
     renderAll();
@@ -149,12 +130,11 @@
 
   function renderAll() {
     elements.entryCountLabel.textContent = `${state.entries.length} 段`;
-    elements.captureTimestamp.textContent = formatTimestamp(new Date());
     renderEntryList();
     renderCapturePreview();
 
     if (!state.entries.length) {
-      setStatus('等待新的聊天复制内容', 'idle');
+      setStatus('等待新的复制内容', 'idle');
     }
   }
 
@@ -163,7 +143,7 @@
       elements.entryList.innerHTML = `
         <div class="empty-state empty-state-light">
           <strong>还没有收集到内容</strong>
-          <p>保持面板开启，然后在 Codex 里复制回复。这里会自动出现每一段已收集内容。</p>
+          <p>保持面板开启，在 Codex 里复制回复。</p>
         </div>
       `;
       return;
@@ -174,10 +154,7 @@
         return `
           <article class="entry-card">
             <div class="entry-row">
-              <div>
-                <h3 class="entry-title">Reply ${index + 1}</h3>
-                <div class="entry-meta">${formatTimestamp(new Date(entry.capturedAt))} · ${entry.source === 'manual' ? '手动抓取' : '自动收集'}</div>
-              </div>
+              <h3 class="entry-title">摘要 ${index + 1}</h3>
               <div class="entry-actions">
                 <button class="button button-danger" type="button" data-entry-remove="${entry.id}">去掉</button>
               </div>
@@ -194,20 +171,16 @@
       elements.captureContent.innerHTML = `
         <div class="empty-state">
           <strong>等待第一段回复</strong>
-          <p>在 Codex 中复制需要的内容后，这里会实时渲染最终截图效果。</p>
+          <p>复制内容后，这里会刷新。</p>
         </div>
       `;
       return;
     }
 
     elements.captureContent.innerHTML = state.entries
-      .map((entry, index) => {
+      .map((entry) => {
         return `
           <article class="response-card">
-            <div class="response-meta">
-              <span>Reply ${index + 1}</span>
-              <span>${formatTimestamp(new Date(entry.capturedAt))}</span>
-            </div>
             ${entry.blocks.map(renderBlock).join('')}
           </article>
         `;
@@ -270,14 +243,14 @@
 
   async function exportCaptureBlob() {
     const scale = window.devicePixelRatio >= 2 ? 2 : 1.8;
-    const timestampLabel = elements.captureTimestamp.textContent || formatTimestamp(new Date());
     const measureCanvas = document.createElement('canvas');
     const measureContext = measureCanvas.getContext('2d');
     if (!measureContext) {
       throw new Error('无法创建测量画布上下文');
     }
 
-    const model = buildCanvasModel(measureContext, state.entries, timestampLabel);
+    canvasTheme = getCanvasTheme();
+    const model = buildCanvasModel(measureContext, state.entries);
     const canvas = document.createElement('canvas');
     canvas.width = Math.ceil(model.width * scale);
     canvas.height = Math.ceil(model.height * scale);
@@ -304,64 +277,56 @@
     return blob;
   }
 
-  function buildCanvasModel(ctx, entries, timestampLabel) {
-    const width = CANVAS_THEME.width;
-    const contentWidth = width - CANVAS_THEME.outerPadding * 2;
-    const header = measureCanvasHeader(ctx, contentWidth, timestampLabel);
-    let y = CANVAS_THEME.outerPadding + header.height + CANVAS_THEME.headerGap;
+  function buildCanvasModel(ctx, entries) {
+    const width = CANVAS_LAYOUT.width;
+    const contentWidth = width - CANVAS_LAYOUT.outerPadding * 2;
+    const header = measureCanvasHeader(contentWidth);
+    let y = CANVAS_LAYOUT.outerPadding + header.height + CANVAS_LAYOUT.headerGap;
 
-    const entryPlans = entries.map((entry, index) => {
-      const plan = measureCanvasEntry(ctx, entry, index, contentWidth);
+    const entryPlans = entries.map((entry) => {
+      const plan = measureCanvasEntry(ctx, entry, contentWidth);
       plan.y = y;
-      y += plan.height + CANVAS_THEME.cardGap;
+      y += plan.height + CANVAS_LAYOUT.cardGap;
       return plan;
     });
 
     if (entryPlans.length) {
-      y -= CANVAS_THEME.cardGap;
+      y -= CANVAS_LAYOUT.cardGap;
     }
 
     return {
       width,
-      height: y + CANVAS_THEME.outerPadding,
+      height: y + CANVAS_LAYOUT.outerPadding,
       header,
-      entryPlans,
-      timestampLabel
+      entryPlans
     };
   }
 
-  function measureCanvasHeader(ctx, width, timestampLabel) {
+  function measureCanvasHeader(width) {
     const kickerStyle = { family: FONT_SANS, size: 11, weight: '700', lineHeight: 1.2 };
-    const titleStyle = { family: FONT_SANS, size: 28, weight: '700', lineHeight: 1.15 };
-    const timestampStyle = { family: FONT_SANS, size: 12, weight: '500', lineHeight: 1.2 };
+    const titleStyle = { family: FONT_SANS, size: 24, weight: '700', lineHeight: 1.15 };
 
     return {
       width,
-      height: lineHeight(kickerStyle) + 8 + lineHeight(titleStyle),
+      height: lineHeight(kickerStyle) + 6 + lineHeight(titleStyle) + 12,
       kickerStyle,
       titleStyle,
-      timestampStyle,
-      title: 'Conversation Snapshot',
+      title: 'Snapshot',
       kicker: 'Codex Chat',
-      timestampLabel
+      dividerY: lineHeight(kickerStyle) + 6 + lineHeight(titleStyle) + 12
     };
   }
 
-  function measureCanvasEntry(ctx, entry, index, width) {
-    const innerWidth = width - CANVAS_THEME.cardPadding * 2;
-    const metaStyle = { family: FONT_SANS, size: 11, weight: '600', lineHeight: 1.2 };
+  function measureCanvasEntry(ctx, entry, width) {
+    const innerWidth = width - CANVAS_LAYOUT.cardPadding * 2;
     const blockPlans = measureCanvasBlocks(ctx, entry.blocks, innerWidth);
 
     return {
       entry,
-      index,
       width,
       innerWidth,
-      metaStyle,
-      metaHeight: lineHeight(metaStyle),
-      metaGap: 14,
       blockPlans,
-      height: CANVAS_THEME.cardPadding + lineHeight(metaStyle) + 14 + blockPlans.height + CANVAS_THEME.cardPadding
+      height: CANVAS_LAYOUT.cardPadding + blockPlans.height + CANVAS_LAYOUT.cardPadding
     };
   }
 
@@ -499,25 +464,12 @@
   }
 
   function drawCanvasModel(ctx, model) {
-    const gradient = ctx.createLinearGradient(0, 0, 0, model.height);
-    gradient.addColorStop(0, CANVAS_THEME.surfaceBackgroundTop);
-    gradient.addColorStop(1, CANVAS_THEME.surfaceBackgroundBottom);
-
-    drawRoundedRect(ctx, 0, 0, model.width, model.height, CANVAS_THEME.surfaceRadius);
-    ctx.fillStyle = gradient;
+    drawRoundedRect(ctx, 0, 0, model.width, model.height, CANVAS_LAYOUT.surfaceRadius);
+    ctx.fillStyle = canvasTheme.surfaceBackground;
     ctx.fill();
-
-    const glowBlue = ctx.createRadialGradient(120, 80, 0, 120, 80, 260);
-    glowBlue.addColorStop(0, CANVAS_THEME.surfaceGlowBlue);
-    glowBlue.addColorStop(1, 'rgba(120, 173, 255, 0)');
-    ctx.fillStyle = glowBlue;
-    ctx.fillRect(0, 0, model.width, model.height);
-
-    const glowAmber = ctx.createRadialGradient(model.width - 110, model.height - 110, 0, model.width - 110, model.height - 110, 240);
-    glowAmber.addColorStop(0, CANVAS_THEME.surfaceGlowAmber);
-    glowAmber.addColorStop(1, 'rgba(255, 177, 115, 0)');
-    ctx.fillStyle = glowAmber;
-    ctx.fillRect(0, 0, model.width, model.height);
+    ctx.strokeStyle = canvasTheme.surfaceBorder;
+    ctx.lineWidth = 1;
+    ctx.stroke();
 
     drawCanvasHeader(ctx, model.header);
     model.entryPlans.forEach((plan) => {
@@ -526,49 +478,38 @@
   }
 
   function drawCanvasHeader(ctx, header) {
-    const x = CANVAS_THEME.outerPadding;
-    const y = CANVAS_THEME.outerPadding;
+    const x = CANVAS_LAYOUT.outerPadding;
+    const y = CANVAS_LAYOUT.outerPadding;
 
     setCanvasFont(ctx, header.kickerStyle);
-    ctx.fillStyle = CANVAS_THEME.accent;
+    ctx.fillStyle = canvasTheme.accent;
     ctx.fillText(header.kicker, x, y + lineHeight(header.kickerStyle));
 
     setCanvasFont(ctx, header.titleStyle);
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = canvasTheme.textPrimary;
     ctx.fillText(header.title, x, y + lineHeight(header.kickerStyle) + 8 + lineHeight(header.titleStyle));
 
-    setCanvasFont(ctx, header.timestampStyle);
-    ctx.fillStyle = CANVAS_THEME.textMuted;
-    const timestampWidth = ctx.measureText(header.timestampLabel).width;
-    ctx.fillText(
-      header.timestampLabel,
-      CANVAS_THEME.width - CANVAS_THEME.outerPadding - timestampWidth,
-      y + lineHeight(header.kickerStyle) + 8 + lineHeight(header.titleStyle)
-    );
+    ctx.strokeStyle = canvasTheme.divider;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x, y + header.dividerY);
+    ctx.lineTo(CANVAS_LAYOUT.width - CANVAS_LAYOUT.outerPadding, y + header.dividerY);
+    ctx.stroke();
   }
 
   function drawCanvasEntry(ctx, plan) {
-    const x = CANVAS_THEME.outerPadding;
+    const x = CANVAS_LAYOUT.outerPadding;
     const y = plan.y;
-    const metaY = y + CANVAS_THEME.cardPadding + lineHeight(plan.metaStyle);
 
-    drawRoundedRect(ctx, x, y, plan.width, plan.height, CANVAS_THEME.cardRadius);
-    ctx.fillStyle = CANVAS_THEME.cardBackground;
+    drawRoundedRect(ctx, x, y, plan.width, plan.height, CANVAS_LAYOUT.cardRadius);
+    ctx.fillStyle = canvasTheme.cardBackground;
     ctx.fill();
-    ctx.strokeStyle = CANVAS_THEME.cardBorder;
+    ctx.strokeStyle = canvasTheme.cardBorder;
     ctx.lineWidth = 1;
     ctx.stroke();
 
-    setCanvasFont(ctx, plan.metaStyle);
-    ctx.fillStyle = CANVAS_THEME.textMuted;
-    ctx.fillText(`Reply ${plan.index + 1}`, x + CANVAS_THEME.cardPadding, metaY);
-
-    const timeLabel = formatTimestamp(new Date(plan.entry.capturedAt));
-    const timeWidth = ctx.measureText(timeLabel).width;
-    ctx.fillText(timeLabel, x + plan.width - CANVAS_THEME.cardPadding - timeWidth, metaY);
-
-    const blockX = x + CANVAS_THEME.cardPadding;
-    const blockY = metaY + plan.metaGap;
+    const blockX = x + CANVAS_LAYOUT.cardPadding;
+    const blockY = y + CANVAS_LAYOUT.cardPadding;
     plan.blockPlans.plans.forEach((blockPlan) => {
       drawCanvasBlock(ctx, blockPlan, blockX, blockY + blockPlan.y);
     });
@@ -577,16 +518,16 @@
   function drawCanvasBlock(ctx, plan, x, y) {
     switch (plan.type) {
       case 'heading':
-        drawTextLines(ctx, plan.lines, x, y, plan.style, '#ffffff');
+        drawTextLines(ctx, plan.lines, x, y, plan.style, canvasTheme.textPrimary);
         return;
       case 'paragraph':
-        drawTextLines(ctx, plan.lines, x, y, plan.style, CANVAS_THEME.textPrimary);
+        drawTextLines(ctx, plan.lines, x, y, plan.style, canvasTheme.textPrimary);
         return;
       case 'blockquote':
         drawRoundedRect(ctx, x, y, plan.width, plan.height, 12);
-        ctx.fillStyle = CANVAS_THEME.quoteBackground;
+        ctx.fillStyle = canvasTheme.quoteBackground;
         ctx.fill();
-        ctx.fillStyle = CANVAS_THEME.quoteBorder;
+        ctx.fillStyle = canvasTheme.quoteBorder;
         ctx.fillRect(x, y, 3, plan.height);
         drawTextLines(
           ctx,
@@ -594,14 +535,14 @@
           x + plan.paddingX,
           y + plan.paddingY,
           plan.style,
-          CANVAS_THEME.textPrimary
+          canvasTheme.textPrimary
         );
         return;
       case 'unordered-list':
       case 'ordered-list': {
         let currentY = y;
         plan.itemPlans.forEach((itemPlan, index) => {
-          drawTextLines(ctx, itemPlan.lines, x, currentY, plan.style, CANVAS_THEME.textPrimary);
+          drawTextLines(ctx, itemPlan.lines, x, currentY, plan.style, canvasTheme.textPrimary);
           currentY += itemPlan.height;
           if (index < plan.itemPlans.length - 1) {
             currentY += plan.gap;
@@ -612,18 +553,18 @@
       case 'code': {
         const labelWidth = measurePillWidth(ctx, plan.labelStyle, plan.language);
         drawRoundedRect(ctx, x, y, labelWidth, lineHeight(plan.labelStyle) + 10, 999);
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+        ctx.fillStyle = canvasTheme.badgeBackground;
         ctx.fill();
 
         setCanvasFont(ctx, plan.labelStyle);
-        ctx.fillStyle = CANVAS_THEME.textMuted;
+        ctx.fillStyle = canvasTheme.textMuted;
         ctx.fillText(plan.language, x + 10, y + lineHeight(plan.labelStyle) + 2);
 
         const codeY = y + plan.labelHeight;
         drawRoundedRect(ctx, x, codeY, plan.width, plan.height - plan.labelHeight, 16);
-        ctx.fillStyle = CANVAS_THEME.codeBackground;
+        ctx.fillStyle = canvasTheme.codeBackground;
         ctx.fill();
-        ctx.strokeStyle = CANVAS_THEME.codeBorder;
+        ctx.strokeStyle = canvasTheme.codeBorder;
         ctx.lineWidth = 1;
         ctx.stroke();
         drawTextLines(
@@ -632,12 +573,12 @@
           x + plan.codePadding,
           codeY + plan.codePadding,
           plan.codeStyle,
-          CANVAS_THEME.codeText
+          canvasTheme.codeText
         );
         return;
       }
       case 'hr':
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
+        ctx.strokeStyle = canvasTheme.hr;
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(x, y + 12);
@@ -983,15 +924,176 @@
     return `local-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
   }
 
-  function formatTimestamp(date) {
-    return new Intl.DateTimeFormat('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    }).format(date);
+  function getCanvasTheme() {
+    const styles = getComputedStyle(document.documentElement);
+    const editorBackground = readThemeColor(styles, '--vscode-editor-background', '#1e1e1e');
+    const surfaceBackground = readThemeColor(styles, '--vscode-editorWidget-background', editorBackground);
+    const textPrimary = readThemeColor(
+      styles,
+      '--vscode-editor-foreground',
+      readThemeColor(styles, '--vscode-foreground', '#f3f3f3')
+    );
+    const accent = readThemeColor(
+      styles,
+      '--vscode-focusBorder',
+      readThemeColor(styles, '--vscode-textLink-foreground', '#3794ff')
+    );
+    const divider = readThemeColor(
+      styles,
+      '--vscode-panel-border',
+      readThemeColor(
+        styles,
+        '--vscode-contrastBorder',
+        withAlpha(textPrimary, 0.14, 'rgba(127, 127, 127, 0.22)')
+      )
+    );
+    const textMuted = readThemeColor(
+      styles,
+      '--vscode-descriptionForeground',
+      readThemeColor(styles, '--vscode-disabledForeground', mixColors(textPrimary, surfaceBackground, 0.42, textPrimary))
+    );
+    const codeBackground = readThemeColor(
+      styles,
+      '--vscode-textCodeBlock-background',
+      mixColors(surfaceBackground, editorBackground, 0.38, surfaceBackground)
+    );
+
+    return {
+      surfaceBackground,
+      surfaceBorder: divider,
+      divider,
+      cardBackground: mixColors(surfaceBackground, editorBackground, 0.28, surfaceBackground),
+      cardBorder: divider,
+      accent,
+      textPrimary,
+      textMuted,
+      quoteBackground: withAlpha(accent, 0.1, 'rgba(55, 148, 255, 0.1)'),
+      quoteBorder: accent,
+      codeBackground,
+      codeBorder: divider,
+      codeText: textPrimary,
+      badgeBackground: withAlpha(textPrimary, 0.06, 'rgba(127, 127, 127, 0.08)'),
+      hr: divider
+    };
+  }
+
+  function readThemeColor(styles, propertyName, fallback) {
+    const resolved = resolveThemeColor(styles.getPropertyValue(propertyName), styles);
+    return resolved || fallback;
+  }
+
+  function resolveThemeColor(value, styles, depth = 0) {
+    const trimmed = String(value || '').trim();
+    if (!trimmed || depth > 4) {
+      return '';
+    }
+
+    const varMatch = trimmed.match(/^var\((--[^,\s)]+)(?:,\s*(.+))?\)$/);
+    if (!varMatch) {
+      return trimmed;
+    }
+
+    const [, reference, fallback] = varMatch;
+    return (
+      resolveThemeColor(styles.getPropertyValue(reference), styles, depth + 1) ||
+      resolveThemeColor(fallback, styles, depth + 1)
+    );
+  }
+
+  function mixColors(baseColor, overlayColor, overlayWeight, fallback) {
+    const base = parseColor(baseColor);
+    const overlay = parseColor(overlayColor);
+    if (!base || !overlay) {
+      return fallback;
+    }
+
+    const baseWeight = 1 - overlayWeight;
+    return formatColor({
+      r: Math.round(base.r * baseWeight + overlay.r * overlayWeight),
+      g: Math.round(base.g * baseWeight + overlay.g * overlayWeight),
+      b: Math.round(base.b * baseWeight + overlay.b * overlayWeight),
+      a: roundAlpha(base.a * baseWeight + overlay.a * overlayWeight)
+    });
+  }
+
+  function withAlpha(color, alpha, fallback) {
+    const parsed = parseColor(color);
+    if (!parsed) {
+      return fallback;
+    }
+
+    return formatColor({
+      r: parsed.r,
+      g: parsed.g,
+      b: parsed.b,
+      a: roundAlpha(alpha)
+    });
+  }
+
+  function parseColor(value) {
+    const text = String(value || '').trim().toLowerCase();
+    if (!text) {
+      return null;
+    }
+
+    if (text.startsWith('#')) {
+      return parseHexColor(text);
+    }
+
+    const rgbaMatch = text.match(/^rgba?\(([^)]+)\)$/);
+    if (!rgbaMatch) {
+      return null;
+    }
+
+    const parts = rgbaMatch[1].split(',').map((part) => Number.parseFloat(part.trim()));
+    if (parts.length < 3 || parts.some((part, index) => Number.isNaN(part) && index < 3)) {
+      return null;
+    }
+
+    return {
+      r: clampChannel(parts[0]),
+      g: clampChannel(parts[1]),
+      b: clampChannel(parts[2]),
+      a: Number.isNaN(parts[3]) ? 1 : clampAlpha(parts[3])
+    };
+  }
+
+  function parseHexColor(text) {
+    const hex = text.slice(1);
+    if (hex.length === 3 || hex.length === 4) {
+      const expanded = hex
+        .split('')
+        .map((char) => char + char)
+        .join('');
+      return parseHexColor(`#${expanded}`);
+    }
+
+    if (hex.length !== 6 && hex.length !== 8) {
+      return null;
+    }
+
+    return {
+      r: Number.parseInt(hex.slice(0, 2), 16),
+      g: Number.parseInt(hex.slice(2, 4), 16),
+      b: Number.parseInt(hex.slice(4, 6), 16),
+      a: hex.length === 8 ? roundAlpha(Number.parseInt(hex.slice(6, 8), 16) / 255) : 1
+    };
+  }
+
+  function formatColor(color) {
+    return `rgba(${color.r}, ${color.g}, ${color.b}, ${roundAlpha(color.a)})`;
+  }
+
+  function roundAlpha(value) {
+    return Math.round(clampAlpha(value) * 1000) / 1000;
+  }
+
+  function clampChannel(value) {
+    return Math.max(0, Math.min(255, Math.round(value)));
+  }
+
+  function clampAlpha(value) {
+    return Math.max(0, Math.min(1, Number(value)));
   }
 
   function escapeHtml(value) {

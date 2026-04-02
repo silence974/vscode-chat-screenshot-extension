@@ -1,19 +1,75 @@
 :root {
   color-scheme: light dark;
+  --display-font: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", "Songti SC", "Noto Serif SC", serif;
+  --body-font: "Avenir Next", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --mono-font: var(--vscode-editor-font-family, "Cascadia Mono", "SFMono-Regular", monospace);
+  --surface-0: var(--vscode-editor-background);
+  --surface-1: var(--vscode-editorWidget-background, var(--surface-0));
+  --surface-2: color-mix(in srgb, var(--surface-1) 84%, var(--surface-0));
+  --surface-3: color-mix(in srgb, var(--surface-1) 92%, var(--vscode-sideBar-background, var(--surface-0)));
+  --ink: var(--vscode-editor-foreground, var(--vscode-foreground));
+  --muted: color-mix(in srgb, var(--ink) 60%, transparent);
+  --soft-muted: color-mix(in srgb, var(--ink) 34%, transparent);
+  --stroke-soft: color-mix(
+    in srgb,
+    var(--vscode-panel-border, var(--vscode-contrastBorder, var(--ink))) 76%,
+    transparent
+  );
+  --stroke-strong: color-mix(in srgb, var(--ink) 14%, transparent);
+  --accent: var(--vscode-focusBorder, var(--vscode-textLink-foreground));
+  --accent-soft: color-mix(in srgb, var(--accent) 10%, transparent);
+  --accent-line: color-mix(in srgb, var(--accent) 56%, transparent);
+  --danger: var(--vscode-errorForeground);
+  --success: var(--vscode-testing-iconPassed);
+  --failure: var(--vscode-testing-iconFailed);
+  --shadow: color-mix(in srgb, var(--surface-0) 72%, transparent);
 }
 
 * {
   box-sizing: border-box;
 }
 
+html {
+  height: 100%;
+}
+
 body {
+  position: relative;
   margin: 0;
   min-height: 100vh;
-  font-family: var(--vscode-font-family);
-  color: var(--vscode-foreground);
+  font-family: var(--body-font);
+  color: var(--ink);
   background:
-    radial-gradient(circle at top right, color-mix(in srgb, var(--vscode-button-background) 24%, transparent), transparent 32%),
-    linear-gradient(180deg, color-mix(in srgb, var(--vscode-editor-background) 94%, white), var(--vscode-editor-background));
+    radial-gradient(circle at top left, var(--accent-soft), transparent 32%),
+    linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--surface-0) 97%, var(--surface-1)) 0%,
+      var(--surface-0) 100%
+    );
+  overflow-x: hidden;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(to right, color-mix(in srgb, var(--stroke-soft) 30%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, var(--stroke-soft) 24%, transparent) 1px, transparent 1px);
+  background-size: 28px 28px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.12) 42%, transparent 100%);
+  opacity: 0.4;
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 14px;
+  border: 1px solid color-mix(in srgb, var(--stroke-soft) 55%, transparent);
+  border-radius: 24px;
+  pointer-events: none;
+  opacity: 0.55;
 }
 
 button {
@@ -21,261 +77,479 @@ button {
 }
 
 .shell {
-  max-width: 1360px;
+  position: relative;
+  z-index: 1;
+  max-width: 1380px;
   margin: 0 auto;
-  padding: 24px;
+  padding: 22px;
   display: grid;
-  gap: 20px;
+  gap: 16px;
 }
 
-.hero,
 .workspace-card,
 .collector-panel,
 .preview-section {
-  border: 1px solid color-mix(in srgb, var(--vscode-panel-border, var(--vscode-contrastBorder)) 72%, transparent);
-  border-radius: 20px;
-  background: color-mix(in srgb, var(--vscode-editor-background) 90%, white);
-  box-shadow: 0 20px 60px color-mix(in srgb, var(--vscode-editor-background) 76%, black);
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--stroke-soft);
+  border-radius: 22px;
+  background:
+    linear-gradient(
+      160deg,
+      color-mix(in srgb, var(--surface-1) 92%, transparent),
+      color-mix(in srgb, var(--surface-2) 88%, transparent)
+    );
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--ink) 4%, transparent),
+    0 24px 48px -28px var(--shadow);
 }
 
-.hero {
-  padding: 28px;
+.workspace-card::before,
+.collector-panel::before,
+.preview-section::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: min(140px, 40%);
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent-line), transparent);
+}
+
+.workspace-card {
+  padding: 18px 18px 14px;
+  animation: panel-rise 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.collector-panel,
+.preview-section {
+  padding: 14px;
+}
+
+.collector-panel {
+  animation: panel-rise 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.preview-section {
+  animation: panel-rise 620ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.toolbar {
   display: grid;
-  gap: 18px;
   grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: end;
 }
 
-.hero h1,
-.preview-heading h2,
-.capture-header h3 {
+.toolbar-copy {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.toolbar-title,
+.section-heading h2,
+.capture-header h3,
+.entry-title,
+.empty-state strong,
+.response-card h1,
+.response-card h2,
+.response-card h3,
+.response-card h4,
+.response-card h5,
+.response-card h6 {
   margin: 0;
+  font-family: var(--display-font);
 }
 
-.hero-copy,
-.preview-note,
-.empty-state p,
-.source-label,
-.entry-meta,
-.entry-snippet {
-  color: color-mix(in srgb, var(--vscode-foreground) 78%, transparent);
+.toolbar-title {
+  font-size: clamp(1.75rem, 3vw, 2.85rem);
+  font-weight: 600;
+  line-height: 0.95;
+  letter-spacing: -0.05em;
+  text-wrap: balance;
 }
 
-.eyebrow,
-.capture-kicker {
-  margin: 0 0 8px;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
+.source-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  padding: 6px 11px;
+  border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--stroke-soft));
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--ink);
   font-size: 11px;
   font-weight: 700;
-  color: color-mix(in srgb, var(--vscode-button-background) 80%, var(--vscode-foreground));
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 
-.hero-pills,
+.source-label::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
 .toolbar-actions,
 .entry-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
 }
 
-.pill {
-  display: inline-flex;
-  align-items: center;
-  padding: 8px 12px;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--vscode-button-background) 38%, transparent);
-  background: color-mix(in srgb, var(--vscode-button-background) 12%, transparent);
-  color: color-mix(in srgb, var(--vscode-foreground) 92%, transparent);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.workspace-card,
-.collector-panel,
-.preview-section {
-  padding: 22px;
-}
-
-.collector-layout {
-  display: grid;
-  gap: 20px;
-  grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
-}
-
-.toolbar,
-.preview-heading,
-.capture-header,
-.entry-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px;
-}
-
-.toolbar-copy {
-  display: grid;
-  gap: 6px;
+.toolbar-actions {
+  justify-content: flex-end;
 }
 
 .button {
-  border: 1px solid transparent;
-  border-radius: 12px;
-  padding: 10px 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--stroke-soft);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-3) 92%, var(--surface-0));
+  color: var(--ink);
   cursor: pointer;
-  transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease;
 }
 
 .button:hover {
   transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--stroke-soft));
+  box-shadow: 0 14px 28px -22px var(--shadow);
 }
 
 .button-primary {
-  background: var(--vscode-button-background);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--vscode-button-background) 92%, white),
+    var(--vscode-button-background)
+  );
+  border-color: color-mix(in srgb, var(--vscode-button-background) 88%, var(--stroke-soft));
   color: var(--vscode-button-foreground);
+  box-shadow: 0 18px 30px -24px color-mix(in srgb, var(--vscode-button-background) 72%, transparent);
 }
 
 .button-primary:hover {
-  background: var(--vscode-button-hoverBackground);
-}
-
-.button-secondary {
-  background: color-mix(in srgb, var(--vscode-editor-background) 72%, white);
-  color: var(--vscode-foreground);
-  border-color: color-mix(in srgb, var(--vscode-panel-border, var(--vscode-contrastBorder)) 72%, transparent);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--vscode-button-hoverBackground) 90%, white),
+    var(--vscode-button-hoverBackground)
+  );
 }
 
 .button-danger {
-  background: color-mix(in srgb, var(--vscode-errorForeground) 12%, transparent);
-  color: var(--vscode-foreground);
-  border-color: color-mix(in srgb, var(--vscode-errorForeground) 26%, transparent);
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 8%, var(--surface-1));
+  border-color: color-mix(in srgb, var(--danger) 24%, transparent);
 }
 
 .status-banner {
-  margin-top: 16px;
-  padding: 12px 14px;
-  border-radius: 14px;
-  border: 1px solid transparent;
-  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--stroke-soft);
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.04em;
 }
 
-.status-idle {
-  background: color-mix(in srgb, var(--vscode-editor-background) 82%, white);
-  color: var(--vscode-foreground);
+.status-banner::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--soft-muted);
 }
 
 .status-working {
-  background: color-mix(in srgb, var(--vscode-button-background) 12%, transparent);
-  border-color: color-mix(in srgb, var(--vscode-button-background) 32%, transparent);
+  color: var(--accent);
+}
+
+.status-working::before {
+  background: var(--accent);
 }
 
 .status-success {
-  background: color-mix(in srgb, var(--vscode-testing-iconPassed) 14%, transparent);
-  border-color: color-mix(in srgb, var(--vscode-testing-iconPassed) 28%, transparent);
+  color: var(--success);
+}
+
+.status-success::before {
+  background: var(--success);
 }
 
 .status-error {
-  background: color-mix(in srgb, var(--vscode-testing-iconFailed) 14%, transparent);
-  border-color: color-mix(in srgb, var(--vscode-testing-iconFailed) 28%, transparent);
+  color: var(--failure);
+}
+
+.status-error::before {
+  background: var(--failure);
+}
+
+.collector-layout {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(290px, 340px) minmax(0, 1fr);
+  align-items: start;
+}
+
+.collector-panel {
+  position: sticky;
+  top: 22px;
+}
+
+.section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.section-heading h2 {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.section-meta {
+  display: inline-flex;
+  align-items: center;
+  min-width: 46px;
+  justify-content: center;
+  padding: 6px 9px;
+  border: 1px solid var(--stroke-soft);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-3) 92%, transparent);
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .entry-list {
-  margin-top: 18px;
   display: grid;
-  gap: 12px;
+  gap: 10px;
 }
 
 .entry-card {
+  position: relative;
   padding: 16px;
-  border-radius: 16px;
-  border: 1px solid color-mix(in srgb, var(--vscode-panel-border, var(--vscode-contrastBorder)) 70%, transparent);
-  background: color-mix(in srgb, var(--vscode-editor-background) 92%, white);
+  border: 1px solid var(--stroke-soft);
+  border-radius: 18px;
+  background:
+    linear-gradient(
+      150deg,
+      color-mix(in srgb, var(--surface-3) 94%, transparent),
+      color-mix(in srgb, var(--surface-0) 88%, transparent)
+    );
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background-color 180ms ease;
+  animation: card-rise 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.entry-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: linear-gradient(180deg, var(--accent-line), transparent 86%);
+}
+
+.entry-card:hover {
+  transform: translateX(2px) translateY(-1px);
+  border-color: color-mix(in srgb, var(--accent) 24%, var(--stroke-soft));
+}
+
+.entry-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
 }
 
 .entry-title {
-  margin: 0;
-  font-size: 15px;
-}
-
-.entry-meta {
-  margin-top: 6px;
-  font-size: 12px;
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: -0.03em;
 }
 
 .entry-snippet {
-  margin: 12px 0 0;
-  font-size: 13px;
-  line-height: 1.6;
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
   white-space: pre-wrap;
   word-break: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .empty-state {
-  padding: 26px;
-  border: 1px dashed rgba(255, 255, 255, 0.18);
+  padding: 30px 18px;
+  border: 1px dashed color-mix(in srgb, var(--stroke-soft) 86%, transparent);
   border-radius: 18px;
   text-align: center;
-  background: rgba(255, 255, 255, 0.03);
+  background:
+    linear-gradient(
+      165deg,
+      color-mix(in srgb, var(--surface-3) 94%, transparent),
+      color-mix(in srgb, var(--surface-0) 86%, transparent)
+    );
 }
 
-.empty-state-light {
-  border-color: color-mix(in srgb, var(--vscode-panel-border, var(--vscode-contrastBorder)) 72%, transparent);
-  background: color-mix(in srgb, var(--vscode-editor-background) 82%, white);
+.empty-state strong {
+  display: block;
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+.empty-state p,
+.capture-kicker {
+  color: var(--muted);
+}
+
+.empty-state p {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.7;
 }
 
 .preview-frame {
-  margin-top: 18px;
-  padding: 24px;
-  border-radius: 18px;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--vscode-sideBar-background, var(--vscode-editor-background)) 92%, white), color-mix(in srgb, var(--vscode-editor-background) 94%, black));
+  position: relative;
   overflow: auto;
+  padding: 26px 22px 20px;
+  border-radius: 20px;
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--accent) 8%, var(--surface-2)) 0%,
+      var(--surface-2) 46%,
+      color-mix(in srgb, var(--surface-0) 92%, var(--surface-1)) 100%
+    );
+}
+
+.preview-frame::before {
+  content: "";
+  position: absolute;
+  inset: 24px 18px 14px 30px;
+  border: 1px solid color-mix(in srgb, var(--accent) 12%, var(--stroke-soft));
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--surface-1) 80%, transparent);
+  transform: rotate(-1.35deg);
+  z-index: 0;
 }
 
 .capture-surface {
-  width: min(880px, 100%);
+  position: relative;
+  z-index: 1;
+  width: min(860px, 100%);
   margin: 0 auto;
-  padding: 28px;
+  padding: 26px 24px 22px;
+  border: 1px solid color-mix(in srgb, var(--stroke-soft) 88%, transparent);
   border-radius: 24px;
-  color: #f5f7fb;
   background:
-    radial-gradient(circle at top left, rgba(120, 173, 255, 0.18), transparent 28%),
-    radial-gradient(circle at bottom right, rgba(255, 177, 115, 0.18), transparent 26%),
-    linear-gradient(180deg, #111723, #1a2231 62%, #0f1620);
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.38);
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--surface-1) 95%, transparent),
+      color-mix(in srgb, var(--surface-3) 90%, transparent)
+    );
+  color: var(--ink);
+  box-shadow: 0 28px 60px -34px var(--shadow);
+}
+
+.capture-surface::before {
+  content: "";
+  position: absolute;
+  inset: 12px;
+  border: 1px solid color-mix(in srgb, var(--stroke-soft) 60%, transparent);
+  border-radius: 18px;
+  pointer-events: none;
 }
 
 .capture-header {
-  margin-bottom: 20px;
-  align-items: center;
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--stroke-soft);
 }
 
-.capture-timestamp {
-  color: rgba(245, 247, 251, 0.72);
-  font-size: 12px;
+.capture-kicker {
+  margin: 0 0 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+
+.capture-header h3 {
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 600;
+  line-height: 0.95;
+  letter-spacing: -0.05em;
 }
 
 .capture-content {
+  position: relative;
+  z-index: 1;
   display: grid;
   gap: 14px;
 }
 
 .response-card {
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--stroke-soft);
   border-radius: 18px;
-  padding: 18px;
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(12px);
+  padding: 18px 18px 16px;
+  background:
+    linear-gradient(
+      170deg,
+      color-mix(in srgb, var(--surface-1) 94%, transparent),
+      color-mix(in srgb, var(--surface-0) 92%, transparent)
+    );
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--ink) 4%, transparent);
+  animation: card-rise 620ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
-.response-meta {
-  margin-bottom: 14px;
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: rgba(245, 247, 251, 0.62);
+.response-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent-line), transparent 55%);
+  opacity: 0.8;
 }
 
 .response-card > :first-child {
@@ -290,7 +564,7 @@ button {
 .response-card li,
 .response-card blockquote {
   font-size: 15px;
-  line-height: 1.75;
+  line-height: 1.72;
 }
 
 .response-card h1,
@@ -299,9 +573,11 @@ button {
 .response-card h4,
 .response-card h5,
 .response-card h6 {
-  margin: 1.1em 0 0.55em;
-  line-height: 1.2;
-  color: #ffffff;
+  margin: 1em 0 0.45em;
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  color: var(--ink);
 }
 
 .response-card ul,
@@ -311,98 +587,154 @@ button {
 
 .response-card blockquote {
   margin: 0;
-  padding: 0.9em 1em;
-  border-left: 3px solid rgba(120, 173, 255, 0.88);
-  background: rgba(120, 173, 255, 0.1);
-  border-radius: 0 12px 12px 0;
-  color: rgba(245, 247, 251, 0.92);
+  padding: 0.85em 1em;
+  border-left: 3px solid var(--accent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+  color: var(--ink);
 }
 
 .response-card hr {
   border: none;
-  border-top: 1px solid rgba(255, 255, 255, 0.14);
-  margin: 20px 0;
+  border-top: 1px solid var(--stroke-soft);
+  margin: 18px 0;
 }
 
 .response-card pre {
   margin: 0;
   overflow: auto;
-  padding: 16px;
-  border-radius: 16px;
-  background: rgba(4, 8, 16, 0.76);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: #edf2ff;
+  padding: 14px;
+  border: 1px solid var(--stroke-soft);
+  border-radius: 14px;
+  background: var(--vscode-textCodeBlock-background, color-mix(in srgb, var(--surface-3) 90%, black));
+  color: var(--ink);
   white-space: pre-wrap;
   word-break: break-word;
-  line-height: 1.55;
+  line-height: 1.56;
 }
 
 .code-wrapper {
-  margin: 18px 0;
+  margin: 16px 0;
 }
 
 .code-label {
   display: inline-flex;
-  margin-bottom: 8px;
-  padding: 5px 10px;
+  margin-bottom: 7px;
+  padding: 4px 9px;
+  border: 1px solid var(--stroke-soft);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(245, 247, 251, 0.75);
-  font-size: 11px;
+  background: color-mix(in srgb, var(--surface-3) 90%, transparent);
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
 }
 
 .response-card code {
-  font-family: var(--vscode-editor-font-family, ui-monospace, SFMono-Regular, monospace);
+  font-family: var(--mono-font);
 }
 
 .response-card p code,
 .response-card li code,
 .response-card blockquote code {
-  padding: 0.2em 0.45em;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.1);
-  color: #ffd59a;
+  padding: 0.18em 0.42em;
+  border-radius: 7px;
+  background: var(--vscode-textCodeBlock-background, color-mix(in srgb, var(--surface-3) 90%, black));
 }
 
 .response-card a {
-  color: #8fc4ff;
-  text-decoration: none;
+  color: var(--vscode-textLink-foreground);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+}
+
+@keyframes panel-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes card-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @media (max-width: 1080px) {
-  .collector-layout {
+  .toolbar {
     grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .toolbar-actions {
+    justify-content: flex-start;
   }
 }
 
-@media (max-width: 900px) {
-  .hero,
-  .toolbar,
-  .preview-heading,
-  .capture-header,
-  .entry-row {
+@media (max-width: 980px) {
+  body::after {
+    inset: 10px;
+  }
+
+  .collector-layout {
     grid-template-columns: 1fr;
-    display: grid;
+  }
+
+  .collector-panel {
+    position: static;
+  }
+}
+
+@media (max-width: 720px) {
+  body::after {
+    display: none;
   }
 
   .shell {
-    padding: 18px;
+    padding: 14px;
   }
 
   .workspace-card,
   .collector-panel,
-  .preview-section,
-  .hero {
-    padding: 18px;
+  .preview-section {
+    border-radius: 18px;
+  }
+
+  .toolbar-actions,
+  .entry-row,
+  .capture-header {
+    display: grid;
+    grid-template-columns: 1fr;
   }
 
   .preview-frame {
-    padding: 14px;
+    padding: 18px 14px 14px;
+  }
+
+  .preview-frame::before {
+    inset: 18px 8px 10px 16px;
   }
 
   .capture-surface {
-    padding: 20px;
+    padding: 20px 18px 18px;
+    border-radius: 20px;
+  }
+
+  .response-card {
+    padding: 16px 15px 14px;
   }
 }

@@ -253,66 +253,44 @@ class CollectorPanel {
   </head>
   <body>
     <div class="shell">
-      <header class="hero">
-        <div>
-          <p class="eyebrow">Codex Chat Screenshot</p>
-          <h1>Clipboard Collector</h1>
-          <p class="hero-copy">
-            先打开这个面板，再去 Codex 里连续复制需要的回复。每次复制后，收集器都会自动追加并实时预览；等你满意后，再手动点击复制 PNG。
-          </p>
-        </div>
-        <div class="hero-pills">
-          <span class="pill">Auto Collect</span>
-          <span class="pill">Remove & Retry</span>
-          <span class="pill">Manual Copy PNG</span>
-        </div>
-      </header>
-
       <section class="workspace-card">
         <div class="toolbar">
           <div class="toolbar-copy">
-            <strong>收集器状态</strong>
+            <h1 class="toolbar-title">Chat Screenshot</h1>
             <span id="watcherLabel" class="source-label">准备中</span>
           </div>
           <div class="toolbar-actions">
-            <button id="captureClipboardButton" class="button button-secondary" type="button">抓取当前剪贴板</button>
+            <button id="captureClipboardButton" class="button button-secondary" type="button">立即抓取</button>
             <button id="toggleWatcherButton" class="button button-secondary" type="button">暂停监听</button>
-            <button id="clearButton" class="button button-secondary" type="button">清空全部</button>
+            <button id="clearButton" class="button button-secondary" type="button">清空</button>
             <button id="copyButton" class="button button-primary" type="button">复制 PNG</button>
-            <button id="downloadButton" class="button button-secondary" type="button">下载 PNG</button>
+            <button id="downloadButton" class="button button-secondary" type="button">下载</button>
           </div>
         </div>
 
         <div id="statusBanner" class="status-banner status-idle" aria-live="polite">
-          等待新的聊天复制内容
+          等待新的复制内容
         </div>
       </section>
 
       <section class="collector-layout">
         <section class="collector-panel">
-          <div class="preview-heading">
-            <div>
-              <p class="eyebrow">Collected Replies</p>
-              <h2>已收集内容</h2>
-            </div>
-            <p id="entryCountLabel" class="preview-note">0 段</p>
+          <div class="section-heading">
+            <h2>条目摘要</h2>
+            <span id="entryCountLabel" class="section-meta">0 段</span>
           </div>
 
           <div id="entryList" class="entry-list">
             <div class="empty-state empty-state-light">
-              <strong>还没有收集到内容</strong>
-              <p>保持面板开启，然后在 Codex 里复制回复。这里会自动出现每一段已收集内容。</p>
+              <strong>还没有条目</strong>
+              <p>保持面板开启，在 Codex 里复制回复。</p>
             </div>
           </div>
         </section>
 
         <section class="preview-section">
-          <div class="preview-heading">
-            <div>
-              <p class="eyebrow">Preview</p>
-              <h2>最终截图预览</h2>
-            </div>
-            <p class="preview-note">每次收集、删除或清空后，都会自动刷新最终预览；复制 PNG 改为手动触发。</p>
+          <div class="section-heading">
+            <h2>预览</h2>
           </div>
 
           <div class="preview-frame">
@@ -320,15 +298,14 @@ class CollectorPanel {
               <div class="capture-header">
                 <div>
                   <p class="capture-kicker">Codex Chat</p>
-                  <h3>Conversation Snapshot</h3>
+                  <h3>Snapshot</h3>
                 </div>
-                <div id="captureTimestamp" class="capture-timestamp"></div>
               </div>
 
               <div id="captureContent" class="capture-content">
                 <div class="empty-state">
                   <strong>等待第一段回复</strong>
-                  <p>在 Codex 中复制需要的内容后，这里会实时渲染最终截图效果。</p>
+                  <p>复制内容后，这里会刷新。</p>
                 </div>
               </div>
             </div>
