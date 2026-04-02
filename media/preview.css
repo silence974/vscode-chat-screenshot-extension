@@ -560,8 +560,6 @@ button {
   line-height: 1.08;
   letter-spacing: -0.03em;
   color: var(--ink);
-  padding-left: 0.65rem;
-  border-left: 2px solid color-mix(in srgb, var(--accent) 26%, transparent);
 }
 
 .response-card ul,
@@ -588,7 +586,7 @@ button {
   margin: 0;
   overflow: auto;
   padding: 14px 16px;
-  border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--stroke-soft));
+  border: 1px solid var(--stroke-soft);
   border-radius: 12px;
   background: color-mix(in srgb, var(--panel-code-bg) 88%, var(--surface-0));
   color: var(--ink);
@@ -605,10 +603,10 @@ button {
   display: inline-flex;
   margin-bottom: 7px;
   padding: 4px 9px;
-  border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--stroke-soft));
+  border: 1px solid var(--stroke-soft);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--accent) 8%, var(--surface-3));
-  color: color-mix(in srgb, var(--accent) 70%, var(--ink));
+  background: color-mix(in srgb, var(--surface-3) 90%, transparent);
+  color: var(--muted);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -625,20 +623,19 @@ button {
 .response-card blockquote code {
   display: inline-block;
   padding: 0.16em 0.46em;
-  border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--stroke-soft));
+  border: 1px solid var(--stroke-soft);
   border-radius: 8px;
-  background: color-mix(in srgb, var(--accent) 8%, var(--panel-code-bg));
-  color: color-mix(in srgb, var(--accent) 24%, var(--ink));
+  background: color-mix(in srgb, var(--panel-code-bg) 86%, var(--surface-0));
+  color: var(--ink);
 }
 
 .response-card strong {
-  font-weight: 750;
+  font-weight: 700;
   color: var(--ink);
-  background: linear-gradient(transparent 58%, color-mix(in srgb, var(--accent) 14%, transparent) 58%);
 }
 
 .response-card em {
-  color: color-mix(in srgb, var(--accent) 62%, var(--ink));
+  color: color-mix(in srgb, var(--accent) 36%, var(--ink));
 }
 
 .response-card del {
@@ -648,9 +645,14 @@ button {
 
 .response-card a {
   color: var(--vscode-textLink-foreground);
-  text-decoration: underline;
+  text-decoration: none;
   text-decoration-thickness: 1px;
   text-underline-offset: 0.2em;
+  font-weight: 500;
+}
+
+.response-card a:hover {
+  text-decoration: underline;
 }
 
 @keyframes panel-rise {

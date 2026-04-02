@@ -621,12 +621,6 @@
           ctx.strokeStyle = canvasTheme.inlineCodeBorder;
           ctx.lineWidth = 1;
           ctx.stroke();
-        } else if (segment.kind === 'strong' && segment.text.trim()) {
-          const highlightTop = baselineY - Math.round(height * 0.34);
-          const highlightHeight = Math.max(5, Math.round(height * 0.22));
-          drawRoundedRect(ctx, cursorX, highlightTop, metrics.width, highlightHeight, 4);
-          ctx.fillStyle = canvasTheme.strongBackground;
-          ctx.fill();
         }
 
         if (segment.text.trim()) {
@@ -802,32 +796,32 @@
   }
 
   function renderInline(text) {
-    const codeTokens = [];
-    let html = String(text);
-
-    html = html.replace(/`([^`]+)`/g, (_, code) => {
-      const token = `__CODE_TOKEN_${codeTokens.length}__`;
-      codeTokens.push(`<code>${escapeHtml(code)}</code>`);
-      return token;
-    });
-
-    html = escapeHtml(html);
-
-    html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, (_, label, url) => {
-      return `<a href="${escapeAttribute(url)}">${label}</a>`;
-    });
-    html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-    html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
-    html = html.replace(/~~([^~]+)~~/g, '<del>$1</del>');
-
-    return codeTokens.reduce((result, replacement, index) => {
-      return result.replace(`__CODE_TOKEN_${index}__`, replacement);
-    }, html);
+    return parseInlineSegments(text)
+      .map((segment) => {
+        const content = escapeHtml(segment.text);
+        switch (segment.kind) {
+          case 'code':
+            return `<code>${content}</code>`;
+          case 'link':
+            return `<a href="${escapeAttribute(segment.target || '#')}">${content}</a>`;
+          case 'strong':
+            return `<strong>${content}</strong>`;
+          case 'em':
+            return `<em>${content}</em>`;
+          case 'del':
+            return `<del>${content}</del>`;
+          case 'text':
+          default:
+            return content;
+        }
+      })
+      .join('');
   }
 
   function normalizeInlineText(text) {
     return String(text)
-      .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '$1')
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1')
+      .replace(/https?:\/\/[^\s]+/g, (url) => formatLinkLabel(url))
       .replace(/`([^`]+)`/g, '$1')
       .replace(/\*\*([^*]+)\*\*/g, '$1')
       .replace(/\*([^*]+)\*/g, '$1')
@@ -1035,7 +1029,8 @@
   function parseInlineSegments(text) {
     const source = String(text || '');
     const segments = [];
-    const pattern = /`([^`]+)`|\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|\*\*([^*]+)\*\*|\*([^*]+)\*|~~([^~]+)~~/g;
+    const pattern =
+      /`([^`]+)`|\[([^\]]+)\]\(([^)]+)\)|\*\*([^*]+)\*\*|\*([^*]+)\*|~~([^~]+)~~|(https?:\/\/[^\s<]+)/g;
     let lastIndex = 0;
     let match;
 
@@ -1047,13 +1042,19 @@
       if (match[1] !== undefined) {
         segments.push({ kind: 'code', text: match[1] });
       } else if (match[2] !== undefined) {
-        segments.push({ kind: 'link', text: match[2] });
+        segments.push({ kind: 'link', text: match[2], target: match[3] });
       } else if (match[4] !== undefined) {
         segments.push({ kind: 'strong', text: match[4] });
       } else if (match[5] !== undefined) {
         segments.push({ kind: 'em', text: match[5] });
       } else if (match[6] !== undefined) {
         segments.push({ kind: 'del', text: match[6] });
+      } else if (match[7] !== undefined) {
+        const { clean, trailing } = splitTrailingPunctuation(match[7]);
+        segments.push({ kind: 'link', text: formatLinkLabel(clean), target: clean });
+        if (trailing) {
+          segments.push({ kind: 'text', text: trailing });
+        }
       }
 
       lastIndex = pattern.lastIndex;
@@ -1064,6 +1065,31 @@
     }
 
     return segments;
+  }
+
+  function splitTrailingPunctuation(url) {
+    const match = String(url).match(/^(.*?)([),.;!?]+)?$/);
+    if (!match) {
+      return { clean: String(url), trailing: '' };
+    }
+
+    return {
+      clean: match[1],
+      trailing: match[2] || ''
+    };
+  }
+
+  function formatLinkLabel(url) {
+    try {
+      const parsed = new URL(url);
+      const host = parsed.host.replace(/^www\./, '');
+      const path = parsed.pathname === '/' ? '' : parsed.pathname.replace(/\/$/, '');
+      const label = `${host}${path}` || host;
+      return label.length > 44 ? `${label.slice(0, 44)}…` : label;
+    } catch {
+      const compact = String(url).replace(/^https?:\/\//, '');
+      return compact.length > 44 ? `${compact.slice(0, 44)}…` : compact;
+    }
   }
 
   function wrapText(ctx, text, maxWidth, style) {
@@ -1267,12 +1293,11 @@
       codeText: textPrimary,
       badgeBackground: withAlpha(textPrimary, 0.06, 'rgba(127, 127, 127, 0.08)'),
       hr: divider,
-      inlineCodeBackground: withAlpha(accent, 0.08, 'rgba(55, 148, 255, 0.08)'),
-      inlineCodeBorder: withAlpha(accent, 0.18, 'rgba(55, 148, 255, 0.18)'),
-      inlineCodeText: mixColors(textPrimary, accent, 0.12, textPrimary),
+      inlineCodeBackground: mixColors(codeBackground, surfaceBackground, 0.16, codeBackground),
+      inlineCodeBorder: divider,
+      inlineCodeText: textPrimary,
       linkColor: accent,
-      emphasisText: mixColors(textPrimary, accent, 0.3, textPrimary),
-      strongBackground: withAlpha(accent, 0.14, 'rgba(55, 148, 255, 0.14)')
+      emphasisText: mixColors(textPrimary, accent, 0.18, textPrimary)
     };
   }
 
