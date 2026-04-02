@@ -1,7 +1,6 @@
 const vscode = require('vscode');
 
 const COMMAND_OPEN_COLLECTOR = 'codexChatScreenshot.openCollector';
-const COMMAND_LEGACY_CAPTURE = 'codexChatScreenshot.captureFromClipboard';
 const PANEL_VIEW_TYPE = 'codexChatScreenshot.collector';
 
 function activate(context) {
@@ -11,10 +10,6 @@ function activate(context) {
   context.subscriptions.push(
     vscode.commands.registerCommand(COMMAND_OPEN_COLLECTOR, async () => {
       await collectorPanel.show();
-    }),
-    vscode.commands.registerCommand(COMMAND_LEGACY_CAPTURE, async () => {
-      await collectorPanel.show();
-      await collectorPanel.captureCurrentClipboard({ force: true, notifyIfEmpty: true });
     })
   );
 }
@@ -52,7 +47,7 @@ class CollectorPanel {
     if (!this.panel) {
       this.panel = vscode.window.createWebviewPanel(
         PANEL_VIEW_TYPE,
-        'chat-screeenshot',
+        'Chat Screeenshot',
         {
           viewColumn: vscode.ViewColumn.Beside,
           preserveFocus: true
@@ -249,14 +244,14 @@ class CollectorPanel {
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="stylesheet" href="${cssUri}" />
-    <title>chat-screeenshot</title>
+    <title>Chat Screeenshot</title>
   </head>
   <body>
     <div class="shell">
       <section class="workspace-card">
         <div class="toolbar">
           <div class="toolbar-copy">
-            <h1 class="toolbar-title">chat-screeenshot</h1>
+            <h1 class="toolbar-title">Chat Screeenshot</h1>
             <span id="watcherLabel" class="source-label">准备中</span>
           </div>
           <div class="toolbar-actions">

@@ -1,6 +1,6 @@
 {
   "name": "chat-screeenshot",
-  "displayName": "chat-screeenshot",
+  "displayName": "Chat Screeenshot",
   "description": "Turn copied chat replies into polished PNG screenshots and copy them to the clipboard.",
   "version": "0.0.1",
   "license": "MIT",
@@ -18,8 +18,7 @@
     "png"
   ],
   "activationEvents": [
-    "onCommand:codexChatScreenshot.openCollector",
-    "onCommand:codexChatScreenshot.captureFromClipboard"
+    "onCommand:codexChatScreenshot.openCollector"
   ],
   "main": "./src/extension.js",
   "extensionKind": [
@@ -30,12 +29,7 @@
       {
         "command": "codexChatScreenshot.openCollector",
         "title": "Open Collector",
-        "category": "chat-screeenshot"
-      },
-      {
-        "command": "codexChatScreenshot.captureFromClipboard",
-        "title": "Capture Copied Chat as PNG",
-        "category": "chat-screeenshot"
+        "category": "Chat Screeenshot"
       }
     ],
     "keybindings": [
@@ -46,7 +40,7 @@
       }
     ],
     "configuration": {
-      "title": "chat-screeenshot",
+      "title": "Chat Screeenshot",
       "properties": {
         "codexChatScreenshot.clipboardPollIntervalMs": {
           "type": "number",
