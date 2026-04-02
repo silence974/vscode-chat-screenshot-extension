@@ -1,45 +1,40 @@
 const vscode = require('vscode');
 
-const COMMAND_CAPTURE = 'codexChatScreenshot.captureFromClipboard';
-const PANEL_VIEW_TYPE = 'codexChatScreenshot.preview';
+const COMMAND_OPEN_COLLECTOR = 'codexChatScreenshot.openCollector';
+const COMMAND_LEGACY_CAPTURE = 'codexChatScreenshot.captureFromClipboard';
+const PANEL_VIEW_TYPE = 'codexChatScreenshot.collector';
 
 function activate(context) {
-  const previewPanel = new ScreenshotPreviewPanel(context.extensionUri);
+  const collectorPanel = new CollectorPanel(context.extensionUri);
 
-  context.subscriptions.push(previewPanel);
+  context.subscriptions.push(collectorPanel);
   context.subscriptions.push(
-    vscode.commands.registerCommand(COMMAND_CAPTURE, async () => {
-      const clipboardText = await vscode.env.clipboard.readText();
-      const autoCopyOnOpen = vscode.workspace
-        .getConfiguration('codexChatScreenshot')
-        .get('autoCopyOnOpen', true);
-
-      previewPanel.show({
-        sourceText: clipboardText,
-        autoCopy: autoCopyOnOpen && Boolean(clipboardText.trim()),
-        filenameBase: buildFilenameBase(),
-        sourceLabel: clipboardText.trim() ? '来自系统剪贴板' : '等待粘贴聊天内容'
-      });
-
-      if (!clipboardText.trim()) {
-        vscode.window.showInformationMessage(
-          '剪贴板里还没有可用文本。请先在 Codex 聊天窗口复制回复内容，或直接在预览面板中粘贴。'
-        );
-      }
+    vscode.commands.registerCommand(COMMAND_OPEN_COLLECTOR, async () => {
+      await collectorPanel.show();
+    }),
+    vscode.commands.registerCommand(COMMAND_LEGACY_CAPTURE, async () => {
+      await collectorPanel.show();
+      await collectorPanel.captureCurrentClipboard({ force: true, notifyIfEmpty: true });
     })
   );
 }
 
-class ScreenshotPreviewPanel {
+class CollectorPanel {
   constructor(extensionUri) {
     this.extensionUri = extensionUri;
     this.panel = undefined;
     this.isReady = false;
-    this.pendingPayload = undefined;
     this.disposables = [];
+    this.clipboardPollTimer = undefined;
+    this.lastObservedClipboardText = '';
+    this.isWatcherActive = false;
+    this.isPolling = false;
+    this.pendingMessages = [];
   }
 
   dispose() {
+    this.stopClipboardWatcher();
+
     while (this.disposables.length) {
       const disposable = this.disposables.pop();
       if (disposable) {
@@ -53,13 +48,11 @@ class ScreenshotPreviewPanel {
     }
   }
 
-  show(payload) {
-    this.pendingPayload = payload;
-
+  async show() {
     if (!this.panel) {
       this.panel = vscode.window.createWebviewPanel(
         PANEL_VIEW_TYPE,
-        'Codex Chat Screenshot',
+        'Codex Chat Screenshot Collector',
         {
           viewColumn: vscode.ViewColumn.Beside,
           preserveFocus: true
@@ -74,9 +67,15 @@ class ScreenshotPreviewPanel {
       this.panel.webview.html = this.getHtml(this.panel.webview);
       this.disposables.push(
         this.panel.onDidDispose(() => {
+          this.stopClipboardWatcher();
           this.panel = undefined;
           this.isReady = false;
-          this.pendingPayload = undefined;
+          this.pendingMessages = [];
+        }),
+        this.panel.onDidChangeViewState((event) => {
+          if (event.webviewPanel.visible && this.isWatcherActive) {
+            void this.captureCurrentClipboard({ force: false });
+          }
         }),
         this.panel.webview.onDidReceiveMessage((message) => {
           void this.handleMessage(message);
@@ -86,38 +85,29 @@ class ScreenshotPreviewPanel {
       this.panel.reveal(vscode.ViewColumn.Beside, true);
     }
 
-    this.flushPendingPayload();
+    await this.startClipboardWatcher();
   }
 
   async handleMessage(message) {
     switch (message?.type) {
       case 'ready':
         this.isReady = true;
-        this.flushPendingPayload();
+        this.flushPendingMessages();
+        this.postWatcherState();
         return;
-      case 'requestClipboardText': {
-        const sourceText = await vscode.env.clipboard.readText();
-        if (!this.panel) {
-          return;
-        }
-
-        this.panel.webview.postMessage({
-          type: 'clipboardText',
-          payload: {
-            sourceText,
-            autoCopy: Boolean(sourceText.trim()),
-            filenameBase: buildFilenameBase(),
-            sourceLabel: sourceText.trim() ? '重新从系统剪贴板读取' : '系统剪贴板为空'
-          }
-        });
-
-        if (!sourceText.trim()) {
-          vscode.window.showWarningMessage('系统剪贴板里暂时没有文本内容。');
+      case 'captureCurrentClipboard':
+        await this.captureCurrentClipboard({ force: true, notifyIfEmpty: true });
+        return;
+      case 'setWatcherActive':
+        if (message.active) {
+          await this.startClipboardWatcher();
+        } else {
+          this.stopClipboardWatcher();
+          this.postWatcherState();
         }
         return;
-      }
       case 'copied':
-        vscode.window.showInformationMessage('PNG 截图已复制到系统剪贴板。');
+        vscode.window.showInformationMessage('最新 PNG 已复制到系统剪贴板。');
         return;
       case 'copyFailed':
         vscode.window.showWarningMessage(
@@ -138,16 +128,111 @@ class ScreenshotPreviewPanel {
     }
   }
 
-  flushPendingPayload() {
-    if (!this.panel || !this.isReady || !this.pendingPayload) {
+  async startClipboardWatcher() {
+    const pollIntervalMs = getPollIntervalMs();
+    const ignoreInitialClipboardOnOpen = vscode.workspace
+      .getConfiguration('codexChatScreenshot')
+      .get('ignoreInitialClipboardOnOpen', true);
+
+    if (!this.panel) {
       return;
     }
 
-    this.panel.webview.postMessage({
-      type: 'setPayload',
-      payload: this.pendingPayload
+    if (this.clipboardPollTimer) {
+      clearInterval(this.clipboardPollTimer);
+      this.clipboardPollTimer = undefined;
+    }
+
+    if (ignoreInitialClipboardOnOpen) {
+      this.lastObservedClipboardText = await vscode.env.clipboard.readText();
+    } else {
+      this.lastObservedClipboardText = '';
+      await this.captureCurrentClipboard({ force: false });
+    }
+
+    this.isWatcherActive = true;
+    this.clipboardPollTimer = setInterval(() => {
+      void this.captureCurrentClipboard({ force: false });
+    }, pollIntervalMs);
+
+    this.postWatcherState();
+  }
+
+  stopClipboardWatcher() {
+    if (this.clipboardPollTimer) {
+      clearInterval(this.clipboardPollTimer);
+      this.clipboardPollTimer = undefined;
+    }
+
+    this.isWatcherActive = false;
+  }
+
+  async captureCurrentClipboard({ force, notifyIfEmpty }) {
+    if (!this.panel || this.isPolling) {
+      return;
+    }
+
+    this.isPolling = true;
+    try {
+      const clipboardText = await vscode.env.clipboard.readText();
+
+      if (!force && clipboardText === this.lastObservedClipboardText) {
+        return;
+      }
+
+      this.lastObservedClipboardText = clipboardText;
+
+      if (!clipboardText.trim()) {
+        if (notifyIfEmpty) {
+          vscode.window.showInformationMessage('系统剪贴板里还没有可用文本。');
+        }
+        return;
+      }
+
+      this.postMessage({
+        type: 'appendEntry',
+        payload: {
+          id: buildEntryId(),
+          text: clipboardText,
+          capturedAt: new Date().toISOString(),
+          filenameBase: buildFilenameBase(),
+          autoCopy: vscode.workspace.getConfiguration('codexChatScreenshot').get('autoCopyOnChange', true),
+          source: force ? 'manual' : 'auto'
+        }
+      });
+    } finally {
+      this.isPolling = false;
+    }
+  }
+
+  postWatcherState() {
+    this.postMessage({
+      type: 'watcherState',
+      payload: {
+        active: this.isWatcherActive,
+        pollIntervalMs: getPollIntervalMs()
+      }
     });
-    this.pendingPayload = undefined;
+  }
+
+  postMessage(message) {
+    if (!this.panel || !this.isReady) {
+      this.pendingMessages.push(message);
+      return;
+    }
+
+    this.panel.webview.postMessage(message);
+  }
+
+  flushPendingMessages() {
+    if (!this.panel || !this.isReady || !this.pendingMessages.length) {
+      return;
+    }
+
+    for (const message of this.pendingMessages) {
+      this.panel.webview.postMessage(message);
+    }
+    this.pendingMessages = [];
   }
 
   getHtml(webview) {
@@ -165,79 +250,91 @@ class ScreenshotPreviewPanel {
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="stylesheet" href="${cssUri}" />
-    <title>Codex Chat Screenshot</title>
+    <title>Codex Chat Screenshot Collector</title>
   </head>
   <body>
     <div class="shell">
       <header class="hero">
         <div>
           <p class="eyebrow">Codex Chat Screenshot</p>
-          <h1>把已复制的聊天回复转成 PNG</h1>
+          <h1>Clipboard Collector</h1>
           <p class="hero-copy">
-            在 Codex 聊天窗口中复制一段或多段内容，然后执行命令。预览面板会生成截图，并优先自动复制到系统剪贴板。
+            先打开这个面板，再去 Codex 里连续复制需要的回复。每次复制后，收集器都会自动追加、实时预览，并尝试把最新 PNG 放进系统剪贴板。
           </p>
         </div>
         <div class="hero-pills">
-          <span class="pill">MVP</span>
-          <span class="pill">Clipboard First</span>
-          <span class="pill">PNG Preview</span>
+          <span class="pill">Auto Collect</span>
+          <span class="pill">Remove & Retry</span>
+          <span class="pill">Auto Copy PNG</span>
         </div>
       </header>
 
       <section class="workspace-card">
         <div class="toolbar">
           <div class="toolbar-copy">
-            <strong>聊天源文本</strong>
-            <span id="sourceLabel" class="source-label">等待载入</span>
+            <strong>收集器状态</strong>
+            <span id="watcherLabel" class="source-label">准备中</span>
           </div>
           <div class="toolbar-actions">
-            <button id="readClipboardButton" class="button button-secondary" type="button">读取系统剪贴板</button>
-            <button id="renderButton" class="button button-secondary" type="button">更新预览</button>
+            <button id="captureClipboardButton" class="button button-secondary" type="button">抓取当前剪贴板</button>
+            <button id="toggleWatcherButton" class="button button-secondary" type="button">暂停监听</button>
+            <button id="clearButton" class="button button-secondary" type="button">清空全部</button>
             <button id="copyButton" class="button button-primary" type="button">复制 PNG</button>
             <button id="downloadButton" class="button button-secondary" type="button">下载 PNG</button>
           </div>
         </div>
 
-        <label class="input-shell" for="sourceInput">
-          <textarea
-            id="sourceInput"
-            spellcheck="false"
-            placeholder="先在 Codex 聊天窗口复制回复内容，再执行命令。也可以直接把内容粘贴到这里。"
-          ></textarea>
-        </label>
-
         <div id="statusBanner" class="status-banner status-idle" aria-live="polite">
-          等待聊天内容
+          等待新的聊天复制内容
         </div>
       </section>
 
-      <section class="preview-section">
-        <div class="preview-heading">
-          <div>
-            <p class="eyebrow">Preview</p>
-            <h2>截图画布</h2>
-          </div>
-          <p class="preview-note">生成 PNG 时只会截取下方卡片区域，不会包含按钮和输入框。</p>
-        </div>
-
-        <div class="preview-frame">
-          <div id="captureSurface" class="capture-surface">
-            <div class="capture-header">
-              <div>
-                <p class="capture-kicker">Codex Chat</p>
-                <h3>Conversation Snapshot</h3>
-              </div>
-              <div id="captureTimestamp" class="capture-timestamp"></div>
+      <section class="collector-layout">
+        <section class="collector-panel">
+          <div class="preview-heading">
+            <div>
+              <p class="eyebrow">Collected Replies</p>
+              <h2>已收集内容</h2>
             </div>
+            <p id="entryCountLabel" class="preview-note">0 段</p>
+          </div>
 
-            <div id="captureContent" class="capture-content">
-              <div class="empty-state">
-                <strong>还没有可截图的聊天内容</strong>
-                <p>复制 Codex 聊天回复后执行命令，或者把文本直接粘贴进上面的输入框。</p>
-              </div>
+          <div id="entryList" class="entry-list">
+            <div class="empty-state empty-state-light">
+              <strong>还没有收集到内容</strong>
+              <p>保持面板开启，然后在 Codex 里复制回复。这里会自动出现每一段已收集内容。</p>
             </div>
           </div>
-        </div>
+        </section>
+
+        <section class="preview-section">
+          <div class="preview-heading">
+            <div>
+              <p class="eyebrow">Preview</p>
+              <h2>最终截图预览</h2>
+            </div>
+            <p class="preview-note">每次收集、删除或清空后，都会自动刷新并尝试重新复制 PNG。</p>
+          </div>
+
+          <div class="preview-frame">
+            <div id="captureSurface" class="capture-surface">
+              <div class="capture-header">
+                <div>
+                  <p class="capture-kicker">Codex Chat</p>
+                  <h3>Conversation Snapshot</h3>
+                </div>
+                <div id="captureTimestamp" class="capture-timestamp"></div>
+              </div>
+
+              <div id="captureContent" class="capture-content">
+                <div class="empty-state">
+                  <strong>等待第一段回复</strong>
+                  <p>在 Codex 中复制需要的内容后，这里会实时渲染最终截图效果。</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
       </section>
     </div>
 
@@ -245,6 +342,10 @@ class ScreenshotPreviewPanel {
   </body>
 </html>`;
   }
+}
+
+function getPollIntervalMs() {
+  return vscode.workspace.getConfiguration('codexChatScreenshot').get('clipboardPollIntervalMs', 800);
 }
 
 function buildFilenameBase() {
@@ -260,6 +361,10 @@ function buildFilenameBase() {
   ];
 
   return `codex-chat-${parts.join('')}`;
+}
+
+function buildEntryId() {
+  return `entry-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
 }
 
 function pad(value) {

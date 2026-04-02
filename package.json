@@ -18,28 +18,51 @@
     "png"
   ],
   "activationEvents": [
+    "onCommand:codexChatScreenshot.openCollector",
     "onCommand:codexChatScreenshot.captureFromClipboard"
   ],
   "main": "./src/extension.js",
   "extensionKind": [
-    "ui",
-    "workspace"
+    "ui"
   ],
   "contributes": {
     "commands": [
+      {
+        "command": "codexChatScreenshot.openCollector",
+        "title": "Open Chat Screenshot Collector",
+        "category": "Codex Chat Screenshot"
+      },
       {
         "command": "codexChatScreenshot.captureFromClipboard",
         "title": "Capture Copied Codex Chat as PNG",
         "category": "Codex Chat Screenshot"
       }
     ],
+    "keybindings": [
+      {
+        "command": "codexChatScreenshot.openCollector",
+        "key": "ctrl+alt+shift+s",
+        "mac": "cmd+alt+shift+s"
+      }
+    ],
     "configuration": {
       "title": "Codex Chat Screenshot",
       "properties": {
-        "codexChatScreenshot.autoCopyOnOpen": {
+        "codexChatScreenshot.autoCopyOnChange": {
           "type": "boolean",
           "default": true,
-          "description": "Automatically try to copy the generated PNG to the clipboard after the preview opens."
+          "description": "Automatically try to copy the latest generated PNG to the clipboard after the collected content changes."
+        },
+        "codexChatScreenshot.clipboardPollIntervalMs": {
+          "type": "number",
+          "default": 800,
+          "minimum": 250,
+          "description": "How often the collector polls the system clipboard for newly copied chat content."
+        },
+        "codexChatScreenshot.ignoreInitialClipboardOnOpen": {
+          "type": "boolean",
+          "default": true,
+          "description": "When opening the collector, ignore whatever text is already on the clipboard until the user copies something new."
         }
       }
     }

@@ -16,21 +16,21 @@ body {
     linear-gradient(180deg, color-mix(in srgb, var(--vscode-editor-background) 94%, white), var(--vscode-editor-background));
 }
 
-button,
-textarea {
+button {
   font: inherit;
 }
 
 .shell {
-  max-width: 1120px;
+  max-width: 1360px;
   margin: 0 auto;
-  padding: 28px;
+  padding: 24px;
   display: grid;
   gap: 20px;
 }
 
 .hero,
 .workspace-card,
+.collector-panel,
 .preview-section {
   border: 1px solid color-mix(in srgb, var(--vscode-panel-border, var(--vscode-contrastBorder)) 72%, transparent);
   border-radius: 20px;
@@ -54,7 +54,9 @@ textarea {
 .hero-copy,
 .preview-note,
 .empty-state p,
-.source-label {
+.source-label,
+.entry-meta,
+.entry-snippet {
   color: color-mix(in srgb, var(--vscode-foreground) 78%, transparent);
 }
 
@@ -69,7 +71,8 @@ textarea {
 }
 
 .hero-pills,
-.toolbar-actions {
+.toolbar-actions,
+.entry-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
@@ -88,13 +91,21 @@ textarea {
 }
 
 .workspace-card,
+.collector-panel,
 .preview-section {
   padding: 22px;
 }
 
+.collector-layout {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+}
+
 .toolbar,
 .preview-heading,
-.capture-header {
+.capture-header,
+.entry-row {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -133,30 +144,14 @@ textarea {
   border-color: color-mix(in srgb, var(--vscode-panel-border, var(--vscode-contrastBorder)) 72%, transparent);
 }
 
-.input-shell {
-  margin-top: 18px;
-  display: block;
-}
-
-#sourceInput {
-  width: 100%;
-  min-height: 220px;
-  resize: vertical;
-  border: 1px solid color-mix(in srgb, var(--vscode-panel-border, var(--vscode-contrastBorder)) 72%, transparent);
-  border-radius: 16px;
-  padding: 18px;
-  color: var(--vscode-editor-foreground);
-  background: color-mix(in srgb, var(--vscode-input-background, var(--vscode-editor-background)) 88%, transparent);
-  line-height: 1.65;
-}
-
-#sourceInput:focus {
-  outline: 1px solid var(--vscode-focusBorder);
-  outline-offset: 2px;
+.button-danger {
+  background: color-mix(in srgb, var(--vscode-errorForeground) 12%, transparent);
+  color: var(--vscode-foreground);
+  border-color: color-mix(in srgb, var(--vscode-errorForeground) 26%, transparent);
 }
 
 .status-banner {
-  margin-top: 14px;
+  margin-top: 16px;
   padding: 12px 14px;
   border-radius: 14px;
   border: 1px solid transparent;
@@ -181,6 +176,50 @@ textarea {
 .status-error {
   background: color-mix(in srgb, var(--vscode-testing-iconFailed) 14%, transparent);
   border-color: color-mix(in srgb, var(--vscode-testing-iconFailed) 28%, transparent);
+}
+
+.entry-list {
+  margin-top: 18px;
+  display: grid;
+  gap: 12px;
+}
+
+.entry-card {
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--vscode-panel-border, var(--vscode-contrastBorder)) 70%, transparent);
+  background: color-mix(in srgb, var(--vscode-editor-background) 92%, white);
+}
+
+.entry-title {
+  margin: 0;
+  font-size: 15px;
+}
+
+.entry-meta {
+  margin-top: 6px;
+  font-size: 12px;
+}
+
+.entry-snippet {
+  margin: 12px 0 0;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.empty-state {
+  padding: 26px;
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+  border-radius: 18px;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.empty-state-light {
+  border-color: color-mix(in srgb, var(--vscode-panel-border, var(--vscode-contrastBorder)) 72%, transparent);
+  background: color-mix(in srgb, var(--vscode-editor-background) 82%, white);
 }
 
 .preview-frame {
@@ -228,6 +267,17 @@ textarea {
   backdrop-filter: blur(12px);
 }
 
+.response-meta {
+  margin-bottom: 14px;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(245, 247, 251, 0.62);
+}
+
 .response-card > :first-child {
   margin-top: 0;
 }
@@ -251,6 +301,7 @@ textarea {
 .response-card h6 {
   margin: 1.1em 0 0.55em;
   line-height: 1.2;
+  color: #ffffff;
 }
 
 .response-card ul,
@@ -280,6 +331,10 @@ textarea {
   border-radius: 16px;
   background: rgba(4, 8, 16, 0.76);
   border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #edf2ff;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.55;
 }
 
 .code-wrapper {
@@ -316,23 +371,18 @@ textarea {
   text-decoration: none;
 }
 
-.response-card a:hover {
-  text-decoration: underline;
-}
-
-.empty-state {
-  padding: 26px;
-  border: 1px dashed rgba(255, 255, 255, 0.18);
-  border-radius: 18px;
-  text-align: center;
-  background: rgba(255, 255, 255, 0.03);
+@media (max-width: 1080px) {
+  .collector-layout {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 900px) {
   .hero,
   .toolbar,
   .preview-heading,
-  .capture-header {
+  .capture-header,
+  .entry-row {
     grid-template-columns: 1fr;
     display: grid;
   }
@@ -342,6 +392,7 @@ textarea {
   }
 
   .workspace-card,
+  .collector-panel,
   .preview-section,
   .hero {
     padding: 18px;

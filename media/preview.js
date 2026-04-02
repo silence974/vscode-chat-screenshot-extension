@@ -1,174 +1,77 @@
 (function () {
   const vscode = acquireVsCodeApi();
 
+  const FONT_SANS = "'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif";
+  const FONT_MONO = "'Cascadia Mono', Consolas, 'Liberation Mono', monospace";
+  const CANVAS_THEME = {
+    width: 880,
+    outerPadding: 28,
+    headerGap: 20,
+    cardGap: 14,
+    cardPadding: 18,
+    cardRadius: 18,
+    surfaceRadius: 24,
+    surfaceBackgroundTop: '#111723',
+    surfaceBackgroundBottom: '#0f1620',
+    textPrimary: '#f5f7fb',
+    textMuted: 'rgba(245, 247, 251, 0.72)',
+    accent: '#8fc4ff',
+    codeText: '#edf2ff',
+    codeAccent: '#ffd59a',
+    surfaceGlowBlue: 'rgba(120, 173, 255, 0.18)',
+    surfaceGlowAmber: 'rgba(255, 177, 115, 0.18)',
+    cardBackground: 'rgba(255, 255, 255, 0.05)',
+    cardBorder: 'rgba(255, 255, 255, 0.08)',
+    quoteBackground: 'rgba(120, 173, 255, 0.10)',
+    quoteBorder: 'rgba(120, 173, 255, 0.88)',
+    codeBackground: 'rgba(4, 8, 16, 0.76)',
+    codeBorder: 'rgba(255, 255, 255, 0.08)',
+    inlineCodeBackground: 'rgba(255, 255, 255, 0.10)'
+  };
+
   const state = {
-    sourceText: '',
+    entries: [],
+    watcherActive: false,
+    pollIntervalMs: 800,
     filenameBase: 'codex-chat',
-    sourceLabel: '等待载入',
-    autoCopy: false
+    autoCopyEnabled: true,
+    autoCopyTimer: undefined,
+    isCopying: false
   };
 
   const elements = {
-    sourceInput: document.getElementById('sourceInput'),
-    sourceLabel: document.getElementById('sourceLabel'),
+    watcherLabel: document.getElementById('watcherLabel'),
     statusBanner: document.getElementById('statusBanner'),
+    entryCountLabel: document.getElementById('entryCountLabel'),
+    entryList: document.getElementById('entryList'),
     captureSurface: document.getElementById('captureSurface'),
     captureContent: document.getElementById('captureContent'),
     captureTimestamp: document.getElementById('captureTimestamp'),
-    readClipboardButton: document.getElementById('readClipboardButton'),
-    renderButton: document.getElementById('renderButton'),
+    captureClipboardButton: document.getElementById('captureClipboardButton'),
+    toggleWatcherButton: document.getElementById('toggleWatcherButton'),
+    clearButton: document.getElementById('clearButton'),
     copyButton: document.getElementById('copyButton'),
     downloadButton: document.getElementById('downloadButton')
   };
 
-  const captureCss = `
-    * {
-      box-sizing: border-box;
-    }
-    .capture-surface {
-      width: 880px;
-      padding: 28px;
-      border-radius: 24px;
-      color: #f5f7fb;
-      background:
-        radial-gradient(circle at top left, rgba(120, 173, 255, 0.18), transparent 28%),
-        radial-gradient(circle at bottom right, rgba(255, 177, 115, 0.18), transparent 26%),
-        linear-gradient(180deg, #111723, #1a2231 62%, #0f1620);
-      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.38);
-      font-family: var(--vscode-font-family, 'Segoe UI', sans-serif);
-    }
-    .capture-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 16px;
-      margin-bottom: 20px;
-    }
-    .capture-kicker {
-      margin: 0 0 8px;
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      font-size: 11px;
-      font-weight: 700;
-      color: rgba(143, 196, 255, 0.95);
-    }
-    .capture-header h3 {
-      margin: 0;
-      line-height: 1.2;
-      font-size: 28px;
-      color: #ffffff;
-    }
-    .capture-timestamp {
-      color: rgba(245, 247, 251, 0.72);
-      font-size: 12px;
-    }
-    .capture-content {
-      display: grid;
-      gap: 14px;
-    }
-    .response-card {
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 18px;
-      padding: 18px;
-      background: rgba(255, 255, 255, 0.05);
-    }
-    .response-card > :first-child {
-      margin-top: 0;
-    }
-    .response-card > :last-child {
-      margin-bottom: 0;
-    }
-    .response-card p,
-    .response-card li,
-    .response-card blockquote {
-      font-size: 15px;
-      line-height: 1.75;
-    }
-    .response-card h1,
-    .response-card h2,
-    .response-card h3,
-    .response-card h4,
-    .response-card h5,
-    .response-card h6 {
-      margin: 1.1em 0 0.55em;
-      line-height: 1.2;
-      color: #ffffff;
-    }
-    .response-card ul,
-    .response-card ol {
-      padding-left: 1.3em;
-    }
-    .response-card blockquote {
-      margin: 0;
-      padding: 0.9em 1em;
-      border-left: 3px solid rgba(120, 173, 255, 0.88);
-      background: rgba(120, 173, 255, 0.1);
-      border-radius: 0 12px 12px 0;
-      color: rgba(245, 247, 251, 0.92);
-    }
-    .response-card hr {
-      border: none;
-      border-top: 1px solid rgba(255, 255, 255, 0.14);
-      margin: 20px 0;
-    }
-    .response-card pre {
-      margin: 0;
-      overflow: auto;
-      padding: 16px;
-      border-radius: 16px;
-      background: rgba(4, 8, 16, 0.76);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      color: #edf2ff;
-      font-family: var(--vscode-editor-font-family, ui-monospace, SFMono-Regular, monospace);
-      white-space: pre-wrap;
-      word-break: break-word;
-      line-height: 1.55;
-    }
-    .code-wrapper {
-      margin: 18px 0;
-    }
-    .code-label {
-      display: inline-flex;
-      margin-bottom: 8px;
-      padding: 5px 10px;
-      border-radius: 999px;
-      background: rgba(255, 255, 255, 0.08);
-      color: rgba(245, 247, 251, 0.75);
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-    }
-    .response-card code {
-      font-family: var(--vscode-editor-font-family, ui-monospace, SFMono-Regular, monospace);
-    }
-    .response-card p code,
-    .response-card li code,
-    .response-card blockquote code {
-      padding: 0.2em 0.45em;
-      border-radius: 8px;
-      background: rgba(255, 255, 255, 0.1);
-      color: #ffd59a;
-    }
-    .response-card a {
-      color: #8fc4ff;
-      text-decoration: none;
-    }
-    .empty-state {
-      padding: 26px;
-      border: 1px dashed rgba(255, 255, 255, 0.18);
-      border-radius: 18px;
-      text-align: center;
-      background: rgba(255, 255, 255, 0.03);
-    }
-  `;
-
-  elements.readClipboardButton.addEventListener('click', () => {
-    vscode.postMessage({ type: 'requestClipboardText' });
-    setStatus('正在读取系统剪贴板...', 'working');
+  elements.captureClipboardButton.addEventListener('click', () => {
+    vscode.postMessage({ type: 'captureCurrentClipboard' });
+    setStatus('正在抓取当前系统剪贴板...', 'working');
   });
 
-  elements.renderButton.addEventListener('click', () => {
-    renderCapture(false);
+  elements.toggleWatcherButton.addEventListener('click', () => {
+    const nextActive = !state.watcherActive;
+    vscode.postMessage({
+      type: 'setWatcherActive',
+      active: nextActive
+    });
+    setStatus(nextActive ? '正在恢复剪贴板监听...' : '已暂停自动监听。', 'working');
+  });
+
+  elements.clearButton.addEventListener('click', () => {
+    state.entries = [];
+    renderAll({ triggerAutoCopy: false });
+    setStatus('已清空收集内容。', 'idle');
   });
 
   elements.copyButton.addEventListener('click', () => {
@@ -179,63 +82,170 @@
     void downloadPng();
   });
 
+  elements.entryList.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-entry-remove]');
+    if (!button) {
+      return;
+    }
+
+    const entryId = button.getAttribute('data-entry-remove');
+    state.entries = state.entries.filter((entry) => entry.id !== entryId);
+    renderAll({ triggerAutoCopy: state.entries.length > 0 });
+    setStatus(state.entries.length ? '已移除一段内容，并刷新 PNG。' : '已移除最后一段内容。', 'success');
+  });
+
   window.addEventListener('message', (event) => {
     const message = event.data;
-    if (message?.type === 'setPayload' || message?.type === 'clipboardText') {
-      applyPayload(message.payload);
+
+    switch (message?.type) {
+      case 'watcherState':
+        applyWatcherState(message.payload);
+        return;
+      case 'appendEntry':
+        appendEntry(message.payload);
+        return;
+      default:
+        return;
     }
   });
 
+  renderAll({ triggerAutoCopy: false });
   vscode.postMessage({ type: 'ready' });
 
-  function applyPayload(payload) {
-    state.sourceText = payload?.sourceText || '';
-    state.filenameBase = payload?.filenameBase || 'codex-chat';
-    state.sourceLabel = payload?.sourceLabel || '已更新';
-    state.autoCopy = Boolean(payload?.autoCopy);
+  function applyWatcherState(payload) {
+    state.watcherActive = Boolean(payload?.active);
+    state.pollIntervalMs = payload?.pollIntervalMs || 800;
 
-    elements.sourceInput.value = state.sourceText;
-    elements.sourceLabel.textContent = state.sourceLabel;
-
-    renderCapture(state.autoCopy);
+    elements.watcherLabel.textContent = state.watcherActive
+      ? `自动监听中，每 ${state.pollIntervalMs}ms 轮询一次系统剪贴板`
+      : '自动监听已暂停';
+    elements.toggleWatcherButton.textContent = state.watcherActive ? '暂停监听' : '恢复监听';
   }
 
-  function renderCapture(shouldAutoCopy) {
-    const sourceText = elements.sourceInput.value.trim();
-    state.sourceText = sourceText;
-    state.autoCopy = false;
-    elements.captureTimestamp.textContent = formatTimestamp(new Date());
-
-    if (!sourceText) {
-      elements.captureContent.innerHTML = `
-        <div class="empty-state">
-          <strong>还没有可截图的聊天内容</strong>
-          <p>复制 Codex 聊天回复后执行命令，或者把文本直接粘贴进上面的输入框。</p>
-        </div>
-      `;
-      setStatus('等待聊天内容', 'idle');
+  function appendEntry(payload) {
+    const text = String(payload?.text || '').trim();
+    if (!text) {
       return;
     }
 
-    elements.captureContent.innerHTML = renderMarkdownToHtml(sourceText);
-    setStatus('预览已更新，可以复制 PNG。', 'success');
-
-    if (shouldAutoCopy) {
-      void copyPng(false);
+    if (payload?.source === 'auto') {
+      const lastEntry = state.entries[state.entries.length - 1];
+      if (lastEntry && lastEntry.text === text) {
+        setStatus('检测到重复剪贴板内容，已自动忽略。', 'idle');
+        return;
+      }
     }
+
+    state.filenameBase = payload?.filenameBase || state.filenameBase;
+    state.autoCopyEnabled = payload?.autoCopy !== false;
+    state.entries.push({
+      id: payload?.id || buildLocalId(),
+      text,
+      blocks: splitBlocks(text),
+      source: payload?.source || 'auto',
+      capturedAt: payload?.capturedAt || new Date().toISOString()
+    });
+
+    renderAll({ triggerAutoCopy: state.autoCopyEnabled });
+    setStatus(`已收集第 ${state.entries.length} 段内容，并刷新预览。`, 'success');
+  }
+
+  function renderAll(options) {
+    elements.entryCountLabel.textContent = `${state.entries.length} 段`;
+    elements.captureTimestamp.textContent = formatTimestamp(new Date());
+    renderEntryList();
+    renderCapturePreview();
+
+    if (!state.entries.length) {
+      clearTimeout(state.autoCopyTimer);
+      setStatus('等待新的聊天复制内容', 'idle');
+      return;
+    }
+
+    if (options?.triggerAutoCopy) {
+      scheduleAutoCopy();
+    }
+  }
+
+  function renderEntryList() {
+    if (!state.entries.length) {
+      elements.entryList.innerHTML = `
+        <div class="empty-state empty-state-light">
+          <strong>还没有收集到内容</strong>
+          <p>保持面板开启，然后在 Codex 里复制回复。这里会自动出现每一段已收集内容。</p>
+        </div>
+      `;
+      return;
+    }
+
+    elements.entryList.innerHTML = state.entries
+      .map((entry, index) => {
+        return `
+          <article class="entry-card">
+            <div class="entry-row">
+              <div>
+                <h3 class="entry-title">Reply ${index + 1}</h3>
+                <div class="entry-meta">${formatTimestamp(new Date(entry.capturedAt))} · ${entry.source === 'manual' ? '手动抓取' : '自动收集'}</div>
+              </div>
+              <div class="entry-actions">
+                <button class="button button-danger" type="button" data-entry-remove="${entry.id}">去掉</button>
+              </div>
+            </div>
+            <p class="entry-snippet">${escapeHtml(buildSnippet(entry.text))}</p>
+          </article>
+        `;
+      })
+      .join('');
+  }
+
+  function renderCapturePreview() {
+    if (!state.entries.length) {
+      elements.captureContent.innerHTML = `
+        <div class="empty-state">
+          <strong>等待第一段回复</strong>
+          <p>在 Codex 中复制需要的内容后，这里会实时渲染最终截图效果。</p>
+        </div>
+      `;
+      return;
+    }
+
+    elements.captureContent.innerHTML = state.entries
+      .map((entry, index) => {
+        return `
+          <article class="response-card">
+            <div class="response-meta">
+              <span>Reply ${index + 1}</span>
+              <span>${formatTimestamp(new Date(entry.capturedAt))}</span>
+            </div>
+            ${entry.blocks.map(renderBlock).join('')}
+          </article>
+        `;
+      })
+      .join('');
+  }
+
+  function scheduleAutoCopy() {
+    if (!state.autoCopyEnabled || !state.entries.length) {
+      return;
+    }
+
+    clearTimeout(state.autoCopyTimer);
+    state.autoCopyTimer = window.setTimeout(() => {
+      void copyPng(false);
+    }, 140);
   }
 
   async function copyPng(fromUserAction) {
-    if (!state.sourceText.trim()) {
-      setStatus('还没有可复制的聊天内容。', 'error');
-      vscode.postMessage({
-        type: 'notify',
-        level: 'warning',
-        message: '请先提供聊天内容，再生成 PNG。'
-      });
+    if (!state.entries.length) {
+      setStatus('还没有可复制的截图内容。', 'error');
       return;
     }
 
+    if (state.isCopying) {
+      return;
+    }
+
+    state.isCopying = true;
     setStatus('正在生成 PNG 并写入系统剪贴板...', 'working');
 
     try {
@@ -250,20 +260,24 @@
         })
       ]);
 
-      setStatus('PNG 截图已复制到系统剪贴板。', 'success');
-      vscode.postMessage({ type: 'copied' });
+      setStatus('最新 PNG 已复制到系统剪贴板。', 'success');
+      if (fromUserAction) {
+        vscode.postMessage({ type: 'copied' });
+      }
     } catch (error) {
       const reason = error instanceof Error ? error.message : '未知错误';
-      setStatus('自动复制失败，请改用“复制 PNG”按钮重试或直接下载文件。', 'error');
+      setStatus('自动复制失败，请点击“复制 PNG”重试或直接下载文件。', 'error');
       if (fromUserAction) {
         vscode.postMessage({ type: 'copyFailed', reason });
       }
+    } finally {
+      state.isCopying = false;
     }
   }
 
   async function downloadPng() {
-    if (!state.sourceText.trim()) {
-      setStatus('还没有可下载的聊天内容。', 'error');
+    if (!state.entries.length) {
+      setStatus('还没有可下载的截图内容。', 'error');
       return;
     }
 
@@ -275,38 +289,30 @@
     link.download = `${state.filenameBase || 'codex-chat'}.png`;
     link.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-    setStatus('PNG 已导出，可以从浏览器下载项或系统默认下载目录中查看。', 'success');
+    setStatus('PNG 已导出，可以从系统默认下载目录中查看。', 'success');
   }
 
   async function exportCaptureBlob() {
-    const captureSurface = elements.captureSurface;
-    const scale = window.devicePixelRatio >= 2 ? 2 : 1.6;
-    const width = Math.ceil(captureSurface.scrollWidth);
-    const height = Math.ceil(captureSurface.scrollHeight);
+    const scale = window.devicePixelRatio >= 2 ? 2 : 1.8;
+    const timestampLabel = elements.captureTimestamp.textContent || formatTimestamp(new Date());
+    const measureCanvas = document.createElement('canvas');
+    const measureContext = measureCanvas.getContext('2d');
+    if (!measureContext) {
+      throw new Error('无法创建测量画布上下文');
+    }
 
-    const serialized = `
-      <svg xmlns="http://www.w3.org/2000/svg" width="${width * scale}" height="${height * scale}" viewBox="0 0 ${width} ${height}">
-        <foreignObject x="0" y="0" width="100%" height="100%">
-          <div xmlns="http://www.w3.org/1999/xhtml">
-            <style>${captureCss}</style>
-            ${captureSurface.outerHTML}
-          </div>
-        </foreignObject>
-      </svg>
-    `;
-
-    const image = await svgToImage(serialized);
+    const model = buildCanvasModel(measureContext, state.entries, timestampLabel);
     const canvas = document.createElement('canvas');
-    canvas.width = Math.ceil(width * scale);
-    canvas.height = Math.ceil(height * scale);
+    canvas.width = Math.ceil(model.width * scale);
+    canvas.height = Math.ceil(model.height * scale);
 
     const context = canvas.getContext('2d');
     if (!context) {
-      throw new Error('无法创建画布上下文');
+      throw new Error('无法创建导出画布上下文');
     }
 
     context.scale(scale, scale);
-    context.drawImage(image, 0, 0, width, height);
+    drawCanvasModel(context, model);
 
     const blob = await new Promise((resolve, reject) => {
       canvas.toBlob((result) => {
@@ -322,39 +328,388 @@
     return blob;
   }
 
-  function svgToImage(svgText) {
-    return new Promise((resolve, reject) => {
-      const blob = new Blob([svgText], { type: 'image/svg+xml;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const image = new Image();
+  function buildCanvasModel(ctx, entries, timestampLabel) {
+    const width = CANVAS_THEME.width;
+    const contentWidth = width - CANVAS_THEME.outerPadding * 2;
+    const header = measureCanvasHeader(ctx, contentWidth, timestampLabel);
+    let y = CANVAS_THEME.outerPadding + header.height + CANVAS_THEME.headerGap;
 
-      image.onload = () => {
-        URL.revokeObjectURL(url);
-        resolve(image);
+    const entryPlans = entries.map((entry, index) => {
+      const plan = measureCanvasEntry(ctx, entry, index, contentWidth);
+      plan.y = y;
+      y += plan.height + CANVAS_THEME.cardGap;
+      return plan;
+    });
+
+    if (entryPlans.length) {
+      y -= CANVAS_THEME.cardGap;
+    }
+
+    return {
+      width,
+      height: y + CANVAS_THEME.outerPadding,
+      header,
+      entryPlans,
+      timestampLabel
+    };
+  }
+
+  function measureCanvasHeader(ctx, width, timestampLabel) {
+    const kickerStyle = { family: FONT_SANS, size: 11, weight: '700', lineHeight: 1.2 };
+    const titleStyle = { family: FONT_SANS, size: 28, weight: '700', lineHeight: 1.15 };
+    const timestampStyle = { family: FONT_SANS, size: 12, weight: '500', lineHeight: 1.2 };
+
+    return {
+      width,
+      height: lineHeight(kickerStyle) + 8 + lineHeight(titleStyle),
+      kickerStyle,
+      titleStyle,
+      timestampStyle,
+      title: 'Conversation Snapshot',
+      kicker: 'Codex Chat',
+      timestampLabel
+    };
+  }
+
+  function measureCanvasEntry(ctx, entry, index, width) {
+    const innerWidth = width - CANVAS_THEME.cardPadding * 2;
+    const metaStyle = { family: FONT_SANS, size: 11, weight: '600', lineHeight: 1.2 };
+    const blockPlans = measureCanvasBlocks(ctx, entry.blocks, innerWidth);
+
+    return {
+      entry,
+      index,
+      width,
+      innerWidth,
+      metaStyle,
+      metaHeight: lineHeight(metaStyle),
+      metaGap: 14,
+      blockPlans,
+      height: CANVAS_THEME.cardPadding + lineHeight(metaStyle) + 14 + blockPlans.height + CANVAS_THEME.cardPadding
+    };
+  }
+
+  function measureCanvasBlocks(ctx, blocks, width) {
+    const plans = [];
+    let y = 0;
+
+    blocks.forEach((block) => {
+      const plan = measureCanvasBlock(ctx, block, width);
+      plan.y = y;
+      plans.push(plan);
+      y += plan.height + 14;
+    });
+
+    if (plans.length) {
+      y -= 14;
+    }
+
+    return {
+      height: y,
+      plans
+    };
+  }
+
+  function measureCanvasBlock(ctx, block, width) {
+    switch (block.type) {
+      case 'code':
+        return measureCodeBlock(ctx, block, width);
+      case 'heading':
+        return measureHeadingBlock(ctx, block, width);
+      case 'blockquote':
+        return measureQuoteBlock(ctx, block, width);
+      case 'unordered-list':
+      case 'ordered-list':
+        return measureListBlock(ctx, block, width);
+      case 'hr':
+        return { type: 'hr', height: 24, width };
+      case 'paragraph':
+      default:
+        return measureParagraphBlock(ctx, block, width);
+    }
+  }
+
+  function measureParagraphBlock(ctx, block, width) {
+    const style = { family: FONT_SANS, size: 15, weight: '400', lineHeight: 1.75 };
+    const lines = wrapText(ctx, normalizeInlineText(block.content), width, style);
+    return {
+      type: 'paragraph',
+      style,
+      lines,
+      width,
+      height: lines.length * lineHeight(style)
+    };
+  }
+
+  function measureHeadingBlock(ctx, block, width) {
+    const sizes = { 1: 30, 2: 26, 3: 22, 4: 18, 5: 16, 6: 15 };
+    const style = {
+      family: FONT_SANS,
+      size: sizes[block.level] || 18,
+      weight: '700',
+      lineHeight: 1.25
+    };
+    const lines = wrapText(ctx, normalizeInlineText(block.content), width, style);
+    return {
+      type: 'heading',
+      style,
+      lines,
+      width,
+      height: lines.length * lineHeight(style)
+    };
+  }
+
+  function measureQuoteBlock(ctx, block, width) {
+    const style = { family: FONT_SANS, size: 15, weight: '400', lineHeight: 1.75 };
+    const paddingX = 14;
+    const paddingY = 12;
+    const lines = wrapText(ctx, normalizeInlineText(block.content), width - paddingX * 2 - 6, style);
+    return {
+      type: 'blockquote',
+      style,
+      lines,
+      width,
+      paddingX,
+      paddingY,
+      height: paddingY * 2 + lines.length * lineHeight(style)
+    };
+  }
+
+  function measureListBlock(ctx, block, width) {
+    const style = { family: FONT_SANS, size: 15, weight: '400', lineHeight: 1.75 };
+    const itemPlans = block.items.map((item, index) => {
+      const prefix = block.type === 'ordered-list' ? `${index + 1}. ` : '• ';
+      const lines = wrapText(ctx, `${prefix}${normalizeInlineText(item)}`, width, style);
+      return {
+        prefix,
+        lines,
+        height: lines.length * lineHeight(style)
       };
+    });
 
-      image.onerror = () => {
-        URL.revokeObjectURL(url);
-        reject(new Error('无法把 SVG 渲染为位图'));
-      };
+    const gap = 8;
+    const height =
+      itemPlans.reduce((sum, itemPlan) => sum + itemPlan.height, 0) + Math.max(0, itemPlans.length - 1) * gap;
 
-      image.src = url;
+    return {
+      type: block.type,
+      style,
+      itemPlans,
+      gap,
+      width,
+      height
+    };
+  }
+
+  function measureCodeBlock(ctx, block, width) {
+    const labelStyle = { family: FONT_SANS, size: 11, weight: '600', lineHeight: 1.2 };
+    const codeStyle = { family: FONT_MONO, size: 13, weight: '400', lineHeight: 1.55 };
+    const codePadding = 16;
+    const labelHeight = lineHeight(labelStyle) + 8;
+    const lines = wrapCodeText(ctx, block.content || '', width - codePadding * 2, codeStyle);
+    const codeHeight = codePadding * 2 + lines.length * lineHeight(codeStyle);
+
+    return {
+      type: 'code',
+      labelStyle,
+      codeStyle,
+      language: block.language || 'text',
+      width,
+      codePadding,
+      lines,
+      labelHeight,
+      height: labelHeight + codeHeight
+    };
+  }
+
+  function drawCanvasModel(ctx, model) {
+    const gradient = ctx.createLinearGradient(0, 0, 0, model.height);
+    gradient.addColorStop(0, CANVAS_THEME.surfaceBackgroundTop);
+    gradient.addColorStop(1, CANVAS_THEME.surfaceBackgroundBottom);
+
+    drawRoundedRect(ctx, 0, 0, model.width, model.height, CANVAS_THEME.surfaceRadius);
+    ctx.fillStyle = gradient;
+    ctx.fill();
+
+    const glowBlue = ctx.createRadialGradient(120, 80, 0, 120, 80, 260);
+    glowBlue.addColorStop(0, CANVAS_THEME.surfaceGlowBlue);
+    glowBlue.addColorStop(1, 'rgba(120, 173, 255, 0)');
+    ctx.fillStyle = glowBlue;
+    ctx.fillRect(0, 0, model.width, model.height);
+
+    const glowAmber = ctx.createRadialGradient(model.width - 110, model.height - 110, 0, model.width - 110, model.height - 110, 240);
+    glowAmber.addColorStop(0, CANVAS_THEME.surfaceGlowAmber);
+    glowAmber.addColorStop(1, 'rgba(255, 177, 115, 0)');
+    ctx.fillStyle = glowAmber;
+    ctx.fillRect(0, 0, model.width, model.height);
+
+    drawCanvasHeader(ctx, model.header);
+    model.entryPlans.forEach((plan) => {
+      drawCanvasEntry(ctx, plan);
     });
   }
 
-  function setStatus(message, tone) {
-    elements.statusBanner.textContent = message;
-    elements.statusBanner.className = `status-banner status-${tone}`;
+  function drawCanvasHeader(ctx, header) {
+    const x = CANVAS_THEME.outerPadding;
+    const y = CANVAS_THEME.outerPadding;
+
+    setCanvasFont(ctx, header.kickerStyle);
+    ctx.fillStyle = CANVAS_THEME.accent;
+    ctx.fillText(header.kicker, x, y + lineHeight(header.kickerStyle));
+
+    setCanvasFont(ctx, header.titleStyle);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(header.title, x, y + lineHeight(header.kickerStyle) + 8 + lineHeight(header.titleStyle));
+
+    setCanvasFont(ctx, header.timestampStyle);
+    ctx.fillStyle = CANVAS_THEME.textMuted;
+    const timestampWidth = ctx.measureText(header.timestampLabel).width;
+    ctx.fillText(
+      header.timestampLabel,
+      CANVAS_THEME.width - CANVAS_THEME.outerPadding - timestampWidth,
+      y + lineHeight(header.kickerStyle) + 8 + lineHeight(header.titleStyle)
+    );
   }
 
-  function renderMarkdownToHtml(sourceText) {
-    const parts = splitBlocks(sourceText);
-    const html = parts.map(renderBlock).join('');
-    return `<article class="response-card">${html}</article>`;
+  function drawCanvasEntry(ctx, plan) {
+    const x = CANVAS_THEME.outerPadding;
+    const y = plan.y;
+    const metaY = y + CANVAS_THEME.cardPadding + lineHeight(plan.metaStyle);
+
+    drawRoundedRect(ctx, x, y, plan.width, plan.height, CANVAS_THEME.cardRadius);
+    ctx.fillStyle = CANVAS_THEME.cardBackground;
+    ctx.fill();
+    ctx.strokeStyle = CANVAS_THEME.cardBorder;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    setCanvasFont(ctx, plan.metaStyle);
+    ctx.fillStyle = CANVAS_THEME.textMuted;
+    ctx.fillText(`Reply ${plan.index + 1}`, x + CANVAS_THEME.cardPadding, metaY);
+
+    const timeLabel = formatTimestamp(new Date(plan.entry.capturedAt));
+    const timeWidth = ctx.measureText(timeLabel).width;
+    ctx.fillText(timeLabel, x + plan.width - CANVAS_THEME.cardPadding - timeWidth, metaY);
+
+    const blockX = x + CANVAS_THEME.cardPadding;
+    const blockY = metaY + plan.metaGap;
+    plan.blockPlans.plans.forEach((blockPlan) => {
+      drawCanvasBlock(ctx, blockPlan, blockX, blockY + blockPlan.y);
+    });
+  }
+
+  function drawCanvasBlock(ctx, plan, x, y) {
+    switch (plan.type) {
+      case 'heading':
+        drawTextLines(ctx, plan.lines, x, y, plan.style, '#ffffff');
+        return;
+      case 'paragraph':
+        drawTextLines(ctx, plan.lines, x, y, plan.style, CANVAS_THEME.textPrimary);
+        return;
+      case 'blockquote':
+        drawRoundedRect(ctx, x, y, plan.width, plan.height, 12);
+        ctx.fillStyle = CANVAS_THEME.quoteBackground;
+        ctx.fill();
+        ctx.fillStyle = CANVAS_THEME.quoteBorder;
+        ctx.fillRect(x, y, 3, plan.height);
+        drawTextLines(
+          ctx,
+          plan.lines,
+          x + plan.paddingX,
+          y + plan.paddingY,
+          plan.style,
+          CANVAS_THEME.textPrimary
+        );
+        return;
+      case 'unordered-list':
+      case 'ordered-list': {
+        let currentY = y;
+        plan.itemPlans.forEach((itemPlan, index) => {
+          drawTextLines(ctx, itemPlan.lines, x, currentY, plan.style, CANVAS_THEME.textPrimary);
+          currentY += itemPlan.height;
+          if (index < plan.itemPlans.length - 1) {
+            currentY += plan.gap;
+          }
+        });
+        return;
+      }
+      case 'code': {
+        const labelWidth = measurePillWidth(ctx, plan.labelStyle, plan.language);
+        drawRoundedRect(ctx, x, y, labelWidth, lineHeight(plan.labelStyle) + 10, 999);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+        ctx.fill();
+
+        setCanvasFont(ctx, plan.labelStyle);
+        ctx.fillStyle = CANVAS_THEME.textMuted;
+        ctx.fillText(plan.language, x + 10, y + lineHeight(plan.labelStyle) + 2);
+
+        const codeY = y + plan.labelHeight;
+        drawRoundedRect(ctx, x, codeY, plan.width, plan.height - plan.labelHeight, 16);
+        ctx.fillStyle = CANVAS_THEME.codeBackground;
+        ctx.fill();
+        ctx.strokeStyle = CANVAS_THEME.codeBorder;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        drawTextLines(
+          ctx,
+          plan.lines,
+          x + plan.codePadding,
+          codeY + plan.codePadding,
+          plan.codeStyle,
+          CANVAS_THEME.codeText
+        );
+        return;
+      }
+      case 'hr':
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x, y + 12);
+        ctx.lineTo(x + plan.width, y + 12);
+        ctx.stroke();
+        return;
+      default:
+        return;
+    }
+  }
+
+  function drawTextLines(ctx, lines, x, y, style, color) {
+    setCanvasFont(ctx, style);
+    ctx.fillStyle = color;
+    const height = lineHeight(style);
+
+    lines.forEach((line, index) => {
+      ctx.fillText(line || ' ', x, y + height * (index + 1));
+    });
+  }
+
+  function renderBlock(block) {
+    switch (block.type) {
+      case 'code':
+        return `
+          <div class="code-wrapper">
+            <div class="code-label">${escapeHtml(block.language || 'text')}</div>
+            <pre><code>${escapeHtml(block.content)}</code></pre>
+          </div>
+        `;
+      case 'heading':
+        return `<h${block.level}>${renderInline(block.content)}</h${block.level}>`;
+      case 'blockquote':
+        return `<blockquote>${renderParagraphLines(block.content)}</blockquote>`;
+      case 'unordered-list':
+        return `<ul>${block.items.map((item) => `<li>${renderInline(item)}</li>`).join('')}</ul>`;
+      case 'ordered-list':
+        return `<ol>${block.items.map((item) => `<li>${renderInline(item)}</li>`).join('')}</ol>`;
+      case 'hr':
+        return '<hr />';
+      case 'paragraph':
+      default:
+        return `<p>${renderParagraphLines(block.content)}</p>`;
+    }
   }
 
   function splitBlocks(sourceText) {
-    const normalized = sourceText.replace(/\r\n/g, '\n');
+    const normalized = String(sourceText).replace(/\r\n/g, '\n');
     const lines = normalized.split('\n');
     const blocks = [];
     let index = 0;
@@ -462,33 +817,8 @@
     return blocks;
   }
 
-  function renderBlock(block) {
-    switch (block.type) {
-      case 'code':
-        return `
-          <div class="code-wrapper">
-            <div class="code-label">${escapeHtml(block.language || 'text')}</div>
-            <pre><code>${escapeHtml(block.content)}</code></pre>
-          </div>
-        `;
-      case 'heading':
-        return `<h${block.level}>${renderInline(block.content)}</h${block.level}>`;
-      case 'blockquote':
-        return `<blockquote>${renderParagraphLines(block.content)}</blockquote>`;
-      case 'unordered-list':
-        return `<ul>${block.items.map((item) => `<li>${renderInline(item)}</li>`).join('')}</ul>`;
-      case 'ordered-list':
-        return `<ol>${block.items.map((item) => `<li>${renderInline(item)}</li>`).join('')}</ol>`;
-      case 'hr':
-        return '<hr />';
-      case 'paragraph':
-      default:
-        return `<p>${renderParagraphLines(block.content)}</p>`;
-    }
-  }
-
   function renderParagraphLines(text) {
-    return text
+    return String(text)
       .split('\n')
       .map((line) => renderInline(line.trim()))
       .join('<br />');
@@ -518,8 +848,178 @@
     }, html);
   }
 
+  function normalizeInlineText(text) {
+    return String(text)
+      .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '$1')
+      .replace(/`([^`]+)`/g, '$1')
+      .replace(/\*\*([^*]+)\*\*/g, '$1')
+      .replace(/\*([^*]+)\*/g, '$1')
+      .replace(/~~([^~]+)~~/g, '$1');
+  }
+
+  function wrapText(ctx, text, maxWidth, style) {
+    const paragraphs = String(text).split('\n');
+    const lines = [];
+
+    paragraphs.forEach((paragraph, index) => {
+      const segmentLines = wrapSingleLine(ctx, paragraph, maxWidth, style);
+      lines.push(...segmentLines);
+      if (index < paragraphs.length - 1) {
+        lines.push('');
+      }
+    });
+
+    return lines.length ? lines : [''];
+  }
+
+  function wrapSingleLine(ctx, text, maxWidth, style) {
+    setCanvasFont(ctx, style);
+    const tokens = tokenizeText(text);
+    const lines = [];
+    let current = '';
+
+    if (!tokens.length) {
+      return [''];
+    }
+
+    tokens.forEach((token) => {
+      const cleanedToken = current ? token : token.trimStart();
+      const candidate = current + cleanedToken;
+
+      if (!current) {
+        if (ctx.measureText(cleanedToken).width <= maxWidth) {
+          current = cleanedToken;
+        } else {
+          const fragments = splitLongToken(ctx, cleanedToken, maxWidth);
+          lines.push(...fragments.slice(0, -1));
+          current = fragments[fragments.length - 1] || '';
+        }
+        return;
+      }
+
+      if (ctx.measureText(candidate).width <= maxWidth) {
+        current = candidate;
+        return;
+      }
+
+      lines.push(current.trimEnd());
+
+      if (ctx.measureText(cleanedToken.trimStart()).width <= maxWidth) {
+        current = cleanedToken.trimStart();
+      } else {
+        const fragments = splitLongToken(ctx, cleanedToken.trimStart(), maxWidth);
+        lines.push(...fragments.slice(0, -1));
+        current = fragments[fragments.length - 1] || '';
+      }
+    });
+
+    if (current || !lines.length) {
+      lines.push(current.trimEnd());
+    }
+
+    return lines;
+  }
+
+  function wrapCodeText(ctx, text, maxWidth, style) {
+    setCanvasFont(ctx, style);
+    const sourceLines = String(text).split('\n');
+    const lines = [];
+
+    sourceLines.forEach((line, index) => {
+      if (!line) {
+        lines.push('');
+      } else {
+        lines.push(...splitLongToken(ctx, line, maxWidth));
+      }
+
+      if (index < sourceLines.length - 1 && !line) {
+        return;
+      }
+    });
+
+    return lines.length ? lines : [''];
+  }
+
+  function tokenizeText(text) {
+    return text.match(/\S+\s*|\s+/g) || [];
+  }
+
+  function splitLongToken(ctx, token, maxWidth) {
+    const fragments = [];
+    let current = '';
+
+    Array.from(token).forEach((char) => {
+      const candidate = current + char;
+      if (!current || ctx.measureText(candidate).width <= maxWidth) {
+        current = candidate;
+      } else {
+        fragments.push(current);
+        current = char;
+      }
+    });
+
+    if (current) {
+      fragments.push(current);
+    }
+
+    return fragments.length ? fragments : [''];
+  }
+
+  function setStatus(message, tone) {
+    elements.statusBanner.textContent = message;
+    elements.statusBanner.className = `status-banner status-${tone}`;
+  }
+
+  function setCanvasFont(ctx, style) {
+    ctx.font = `${style.weight} ${style.size}px ${style.family}`;
+  }
+
+  function lineHeight(style) {
+    return Math.round(style.size * style.lineHeight);
+  }
+
+  function drawRoundedRect(ctx, x, y, width, height, radius) {
+    const safeRadius = Math.min(radius, width / 2, height / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + safeRadius, y);
+    ctx.lineTo(x + width - safeRadius, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + safeRadius);
+    ctx.lineTo(x + width, y + height - safeRadius);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - safeRadius, y + height);
+    ctx.lineTo(x + safeRadius, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - safeRadius);
+    ctx.lineTo(x, y + safeRadius);
+    ctx.quadraticCurveTo(x, y, x + safeRadius, y);
+    ctx.closePath();
+  }
+
+  function measurePillWidth(ctx, style, text) {
+    setCanvasFont(ctx, style);
+    return ctx.measureText(text).width + 20;
+  }
+
+  function buildSnippet(text) {
+    const singleLine = String(text).replace(/\s+/g, ' ').trim();
+    return singleLine.length > 160 ? `${singleLine.slice(0, 160)}…` : singleLine;
+  }
+
+  function buildLocalId() {
+    return `local-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+  }
+
+  function formatTimestamp(date) {
+    return new Intl.DateTimeFormat('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    }).format(date);
+  }
+
   function escapeHtml(value) {
-    return value
+    return String(value)
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
@@ -529,15 +1029,5 @@
 
   function escapeAttribute(value) {
     return String(value).replace(/"/g, '&quot;');
-  }
-
-  function formatTimestamp(date) {
-    return new Intl.DateTimeFormat('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    }).format(date);
   }
 })();
